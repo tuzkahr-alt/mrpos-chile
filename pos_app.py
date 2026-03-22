@@ -10,9 +10,9 @@ Acceso local: http://localhost:5000
 Acceso remoto: http://0.0.0.0:5000 (para Ngrok/Cloudflare)
 """
 
-import os, json
+import os, json, csv, io
 from datetime import datetime, date
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, Response
 from flask_sqlalchemy import SQLAlchemy
 
 # ══════════════════════════════════════════════════════════════
@@ -103,6 +103,15 @@ class MovimientoCuenta(db.Model):
     descripcion = db.Column(db.String(200), default='')
     venta_id = db.Column(db.Integer, db.ForeignKey('ventas.id'), nullable=True)
     cliente = db.relationship('Cliente', backref='movimientos')
+
+class Cajero(db.Model):
+    __tablename__ = 'cajeros'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    rut = db.Column(db.String(15), default='')
+    pin = db.Column(db.String(10), default='1234')
+    turno = db.Column(db.String(50), default='Mañana')
+    activo = db.Column(db.Boolean, default=True)
 
 # ══════════════════════════════════════════════════════════════
 # LÓGICA BALANZA DIGI SM-100
@@ -410,6 +419,55 @@ def informe_ventas_resumen():
         'historico': {'num_ventas': len(todas), 'total': sum(v.total for v in todas)}
     })
 
+# ── DESCARGA DE INFORMES (CSV) ──
+@app.route('/api/descargar/<tipo>', methods=['GET'])
+def descargar_csv(tipo):
+    si = io.StringIO()
+    cw = csv.writer(si)
+    if tipo == 'clientes':
+        clientes = Cliente.query.filter_by(activo=True).all()
+        cw.writerow(['ID', 'Nombre', 'RUT', 'Telefono', 'Email', 'Direccion', 'Deuda'])
+        for c in clientes: cw.writerow([c.id, c.nombre, c.rut, c.telefono, c.email, c.direccion, c.saldo_pendiente])
+    elif tipo == 'productos':
+        productos = Producto.query.filter_by(activo=True).all()
+        cw.writerow(['SKU', 'Nombre', 'Categoria', 'Precio', 'Stock'])
+        for p in productos: cw.writerow([p.sku, p.nombre, p.categoria, p.precio, p.stock])
+    elif tipo == 'categorias':
+        productos = Producto.query.filter_by(activo=True).all()
+        cats = {}
+        for p in productos:
+            if p.categoria not in cats: cats[p.categoria] = {'p':0,'s':0,'v':0}
+            cats[p.categoria]['p'] += 1
+            cats[p.categoria]['s'] += p.stock
+            cats[p.categoria]['v'] += p.stock * p.precio
+        cw.writerow(['Categoria', 'Total Productos', 'Stock Total', 'Valor Inventario'])
+        for c, d in cats.items(): cw.writerow([c, d['p'], round(d['s'],2), round(d['v'],0)])
+    else:
+        return "Tipo no válido", 400
+    
+    return Response(si.getvalue().encode('utf-8-sig'), mimetype="text/csv", headers={"Content-disposition": f"attachment; filename={tipo}.csv"})
+
+# ── CAJEROS ──
+@app.route('/api/cajeros', methods=['GET'])
+def get_cajeros():
+    cajeros = Cajero.query.filter_by(activo=True).all()
+    return jsonify([{'id': c.id, 'nombre': c.nombre, 'rut': c.rut, 'pin': c.pin, 'turno': c.turno} for c in cajeros])
+
+@app.route('/api/cajeros', methods=['POST'])
+def crear_cajero():
+    d = request.json
+    c = Cajero(nombre=d['nombre'], rut=d.get('rut',''), pin=d.get('pin','1234'), turno=d.get('turno','Mañana'))
+    db.session.add(c)
+    db.session.commit()
+    return jsonify({'ok': True, 'id': c.id})
+
+@app.route('/api/cajeros/<int:cid>', methods=['DELETE'])
+def eliminar_cajero(cid):
+    c = Cajero.query.get_or_404(cid)
+    c.activo = False
+    db.session.commit()
+    return jsonify({'ok': True})
+
 # ══════════════════════════════════════════════════════════════
 # TEMPLATE HTML (SPA) - se carga dinámicamente
 # ══════════════════════════════════════════════════════════════
@@ -429,6 +487,11 @@ def index():
 # ══════════════════════════════════════════════════════════════
 def seed_data():
     """Carga productos de ejemplo para Chile"""
+    if Cajero.query.count() == 0:
+        c1 = Cajero(nombre='Cajero Principal', rut='11.111.111-1', pin='1234', turno='Mañana')
+        db.session.add(c1)
+        db.session.commit()
+        
     if Producto.query.count() == 0:
         productos = [
             Producto(sku='00001', codigo_barra='7801234560012', nombre='Coca-Cola 1.5L', precio=1490, stock=50, categoria='Bebidas'),
