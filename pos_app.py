@@ -105,13 +105,14 @@ class MovimientoCuenta(db.Model):
     cliente = db.relationship('Cliente', backref='movimientos')
 
 class Cajero(db.Model):
-    __tablename__ = 'cajeros'
+    __tablename__ = 'cajero'
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
-    rut = db.Column(db.String(15), default='')
-    pin = db.Column(db.String(10), default='1234')
+    rut = db.Column(db.String(20), default='')
+    pin = db.Column(db.String(4), nullable=False)
     turno = db.Column(db.String(50), default='Mañana')
     activo = db.Column(db.Boolean, default=True)
+    rol = db.Column(db.String(20), default='cajero')
 
 class Configuracion(db.Model):
     __tablename__ = 'configuracion'
@@ -461,12 +462,13 @@ def descargar_csv(tipo):
 @app.route('/api/cajeros', methods=['GET'])
 def get_cajeros():
     cajeros = Cajero.query.filter_by(activo=True).all()
-    return jsonify([{'id': c.id, 'nombre': c.nombre, 'rut': c.rut, 'pin': c.pin, 'turno': c.turno} for c in cajeros])
+    return jsonify([{'id': c.id, 'nombre': c.nombre, 'rut': c.rut, 'turno': c.turno, 'rol': getattr(c, 'rol', 'cajero')} for c in cajeros])
 
 @app.route('/api/cajeros', methods=['POST'])
-def crear_cajero():
+def add_cajero():
     d = request.json
-    c = Cajero(nombre=d['nombre'], rut=d.get('rut',''), pin=d.get('pin','1234'), turno=d.get('turno','Mañana'))
+    c = Cajero(nombre=d['nombre'], rut=d.get('rut',''), pin=d['pin'], turno=d.get('turno','Mañana'))
+    if 'rol' in d: c.rol = d['rol']
     db.session.add(c)
     db.session.commit()
     return jsonify({'ok': True, 'id': c.id})
@@ -489,7 +491,8 @@ def api_login():
         return jsonify({'ok': True, 'rol': 'admin', 'nombre': 'Administrador General'})
     cajero = Cajero.query.filter_by(pin=pin, activo=True).first()
     if cajero:
-        return jsonify({'ok': True, 'rol': 'cajero', 'nombre': cajero.nombre})
+        rol = getattr(cajero, 'rol', 'cajero')
+        return jsonify({'ok': True, 'rol': rol, 'nombre': cajero.nombre})
     return jsonify({'ok': False, 'msg': 'PIN de Acceso Incorrecto'})
 
 # ── CONFIGURACION NEGOCIO ──
@@ -602,6 +605,14 @@ with app.app_context():
         db.session.commit()
     except Exception:
         db.session.rollback()
+    
+    try:
+        from sqlalchemy import text
+        db.session.execute(text("ALTER TABLE cajero ADD COLUMN rol VARCHAR(20) DEFAULT 'cajero'"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        
     seed_data()
 
 if __name__ == '__main__':
