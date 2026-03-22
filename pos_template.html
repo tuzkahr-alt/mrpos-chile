@@ -127,6 +127,7 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 <button class="nav-item active nav-admin" onclick="go('dashboard',this)"><i class="fas fa-chart-pie"></i>Dashboard</button>
 <button class="nav-item" onclick="go('terminal',this)"><i class="fas fa-cash-register"></i>Terminal Venta</button>
 <button class="nav-item nav-inv" onclick="go('inventario',this)"><i class="fas fa-boxes-stacked"></i>Inventario</button>
+<button class="nav-item nav-super" onclick="go('super',this)"><i class="fas fa-hammer"></i>Central de Negocios</button>
 <button class="nav-item nav-admin" onclick="go('informes',this)"><i class="fas fa-chart-bar"></i>Informes</button>
 <button class="nav-item nav-admin" onclick="go('categorias',this)"><i class="fas fa-tags"></i>Categorías</button>
 <button class="nav-item" onclick="go('clientes',this)"><i class="fas fa-users"></i>Clientes</button>
@@ -226,7 +227,12 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 <div id="cats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
 </div>
 
-<!-- CONFIGURACION -->
+<!-- SUPER ADMIN -->
+<div class="page" id="p-super">
+<div class="topbar"><h1><i class="fas fa-hammer"></i> Panel Super Dueño</h1><button class="btn btn-b" onclick="abrirMNegocio()"><i class="fas fa-plus"></i> Registrar Nuevo Negocio</button></div>
+<p style="margin-bottom:20px;color:var(--muted)">Desde aquí gestionas todos los locales que usan tu tecnología MRPOS.</p>
+<div id="super-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:15px"></div>
+</div>
 <div class="page" id="p-config">
 <div class="topbar"><h1><i class="fas fa-store"></i> Mi Negocio</h1><button class="btn btn-b" onclick="guardarConfig()"><i class="fas fa-save"></i> Guardar</button></div>
 <div class="cierre-card" style="max-width:500px">
@@ -313,6 +319,14 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 <div class="ma"><button class="btn btn-o" onclick="cerrarM('m-cat')">Cancelar</button><button class="btn btn-b" onclick="guardarCat()"><i class="fas fa-save"></i> Guardar</button></div>
 </div></div>
 
+<!-- MODAL NEGOCIO (SUPER) -->
+<div class="modal-bg" id="m-neg"><div class="modal">
+<h2><i class="fas fa-store"></i> Nuevo Negocio</h2>
+<label>Nombre del Negocio</label><input id="mn-nom" placeholder="Ej: Minisuper Centro">
+<label>PIN de Administrador (Dárselo al dueño del local)</label><input id="mn-pin" placeholder="Ej: 5566">
+<div class="ma"><button class="btn btn-o" onclick="cerrarM('m-neg')">Cancelar</button><button class="btn btn-b" onclick="guardarNegocio()"><i class="fas fa-save"></i> Crear Negocio</button></div>
+</div></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -321,26 +335,26 @@ const F=n=>'$'+new Intl.NumberFormat('es-CL').format(Math.round(n));
 function ck(){const d=new Date(),s=d.toLocaleDateString('es-CL',{weekday:'short',day:'numeric',month:'short'})+' '+d.toLocaleTimeString('es-CL');document.querySelectorAll('#ck,#ck2').forEach(e=>e.textContent=s)}
 setInterval(ck,1000);ck();
 function go(id,b){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('p-'+id).classList.add('active');document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');document.querySelector('.sidebar').classList.remove('open');
-if(id==='dashboard')loadDash();if(id==='terminal')loadProds();if(id==='inventario')loadInv();if(id==='informes')loadInf();if(id==='clientes')loadCli();if(id==='cierre')loadCierre();if(id==='cajeros')loadCajeros();if(id==='config')loadConfig();if(id==='categorias')loadCats()}
+if(id==='dashboard')loadDash();if(id==='terminal')loadProds();if(id==='inventario')loadInv();if(id==='informes')loadInf();if(id==='clientes')loadCli();if(id==='cierre')loadCierre();if(id==='cajeros')loadCajeros();if(id==='config')loadConfig();if(id==='categorias')loadCats();if(id==='super')loadSuper()}
 function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast'+(e?' error':'')+' show';setTimeout(()=>t.classList.remove('show'),3000)}
 function cerrarM(id){document.getElementById(id).classList.remove('show')}
 
 // DASHBOARD
-async function loadDash(){const r=await(await fetch('/api/dashboard')).json();const sc=await(await fetch('/api/informes/stock_categoria')).json();
+async function loadDash(){const nid=localStorage.getItem('nid')||1;const r=await(await fetch(`/api/dashboard?negocio_id=${nid}`)).json();const sc=await(await fetch(`/api/informes/stock_categoria?negocio_id=${nid}`)).json();
 document.getElementById('ds').innerHTML=`<div class="sc"><div class="lb">Ventas Hoy</div><div class="vl">${r.ventas_hoy}</div><div class="ic"><i class="fas fa-shopping-bag"></i></div></div><div class="sc"><div class="lb">Total Hoy</div><div class="vl">${F(r.total_hoy)}</div><div class="ic"><i class="fas fa-dollar-sign"></i></div></div><div class="sc"><div class="lb">Productos</div><div class="vl">${r.total_productos}</div><div class="ic"><i class="fas fa-boxes-stacked"></i></div></div><div class="sc ${r.bajo_stock.length?'alert':''}"><div class="lb">Alertas</div><div class="vl">${r.bajo_stock.length}</div><div class="ic"><i class="fas fa-exclamation-triangle"></i></div></div>`;
 document.getElementById('da').innerHTML=r.bajo_stock.map(p=>`<tr><td style="color:var(--text)">${p.nombre}</td><td><span class="badge br">${p.stock}</span></td><td>${p.stock_minimo}</td></tr>`).join('')||'<tr><td colspan="3" style="text-align:center;padding:16px">Sin alertas</td></tr>';
 document.getElementById('dc').innerHTML=sc.slice(0,5).map(c=>`<tr><td><span class="badge bb">${c.categoria}</span></td><td>${c.total_productos}</td><td style="color:var(--gold-light);font-weight:700">${F(c.valor_inventario)}</td></tr>`).join('')||'<tr><td colspan="3" style="text-align:center;padding:16px">Sin datos</td></tr>';
 document.getElementById('dv').innerHTML=r.ultimas_ventas.map(v=>`<tr><td>${v.hora}</td><td style="color:var(--gold-light);font-weight:700">${F(v.total)}</td><td><span class="badge bb">${v.metodo_pago}</span></td></tr>`).join('')||'<tr><td colspan="3" style="text-align:center;padding:16px">Sin ventas</td></tr>'}
 
 // TERMINAL
-async function loadProds(){prods=await(await fetch('/api/productos')).json();clientes=await(await fetch('/api/clientes')).json(); const cats=await(await fetch('/api/categorias')).json();
+async function loadProds(){const nid=localStorage.getItem('nid')||1;prods=await(await fetch(`/api/productos?negocio_id=${nid}`)).json();clientes=await(await fetch(`/api/clientes?negocio_id=${nid}`)).json(); const cats=await(await fetch(`/api/categorias?negocio_id=${nid}`)).json();
 ['fc','ic','mp-cat'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML=(id==='mp-cat'?'':'<option value="">Todas</option>')+cats.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');if(v)s.value=v});
 document.getElementById('fiado-cliente').innerHTML='<option value="">Seleccionar cliente...</option>'+clientes.map(c=>`<option value="${c.id}">${c.nombre} (${c.rut||'Sin RUT'})</option>`).join('');
 rp()}
 function rp(){const q=document.getElementById('fp').value.toLowerCase(),c=document.getElementById('fc').value;const f=prods.filter(p=>(p.nombre.toLowerCase().includes(q)||p.sku.includes(q))&&(!c||p.categoria===c));
 document.getElementById('pg').innerHTML=f.map(p=>`<div class="pbtn ${p.es_pesable?'pesable':''}" onclick="addCart(${p.id})"><div class="pn">${p.nombre}</div><div class="pp">${F(p.precio)}${p.es_pesable?'/kg':''}</div><div class="ps">${p.es_pesable?'Pesable':'Stk:'+p.stock}</div></div>`).join('')}
 document.addEventListener('DOMContentLoaded',()=>{const i=document.getElementById('si');if(i)i.addEventListener('keypress',e=>{if(e.key==='Enter')scan()})});
-async function scan(){const c=document.getElementById('si').value.trim();if(!c)return;const r=await(await fetch('/api/buscar_codigo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({codigo:c})})).json();
+async function scan(){const c=document.getElementById('si').value.trim();if(!c)return;const nid=localStorage.getItem('nid')||1;const r=await(await fetch('/api/buscar_codigo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({codigo:c,negocio_id:nid})})).json();
 if(r.encontrado){if(r.es_balanza){cart.push({id:r.producto.id,nombre:r.producto.nombre+'('+r.peso_kg.toFixed(3)+'kg)',precio:r.precio_calculado,cantidad:1,pw:true});rc();toast('Balanza: '+r.producto.nombre+' '+r.peso_kg.toFixed(3)+'kg')}else addCart(r.producto.id)}else toast(r.msg||'No encontrado',true);
 document.getElementById('si').value='';document.getElementById('si').focus()}
 function addCart(id){const p=prods.find(x=>x.id===id);if(!p)return;const e=cart.find(c=>c.id===id&&!c.pw);if(e)e.cantidad++;else cart.push({id:p.id,nombre:p.nombre,precio:p.precio,cantidad:1,pw:false});rc();toast(p.nombre+' agregado')}
@@ -365,7 +379,8 @@ async function confirmarVenta(){const total=cart.reduce((s,c)=>s+c.cantidad*c.pr
 if(metodo==='Efectivo'){mp=parseFloat(document.getElementById('pago-monto').value)||0;if(mp<total)return toast('Monto insuficiente',true)}else{mp=total}
 const cid=metodo==='Fiado'?parseInt(document.getElementById('fiado-cliente').value):null;
 const items=cart.map(c=>({producto_id:c.id,cantidad:c.cantidad,precio_unitario:c.precio}));
-const r=await(await fetch('/api/ventas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items,metodo_pago:metodo,monto_pagado:mp,cliente_id:cid})})).json();
+const nid=localStorage.getItem('nid')||1;
+const r=await(await fetch('/api/ventas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items,metodo_pago:metodo,monto_pagado:mp,cliente_id:cid,negocio_id:nid})})).json();
 if(r.ok){cerrarM('m-pago');
 let rb=`<div style="text-align:center;margin-bottom:10px;border-bottom:1px dashed rgba(255,255,255,.2);padding-bottom:10px"><div style="font-weight:900;font-size:1.4rem;color:var(--text);line-height:1.2">${window.configNegocio?.nombre||'MRPOS'}</div><div style="font-size:0.8rem;color:var(--muted)">${window.configNegocio?.direccion||''}</div><div style="font-size:0.75rem;color:var(--muted)">RUT: ${window.configNegocio?.rut||''} | Tel: ${window.configNegocio?.telefono||''}</div></div>`;
 rb+=`<div style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-align:left">Venta #${r.venta_id} | ${new Date().toLocaleString('es-CL')}</div>`;
@@ -378,7 +393,8 @@ document.getElementById('recibo-body').innerHTML=rb;document.getElementById('m-r
 cart=[];rc();loadProds()}else toast('Error',true)}
 
 // INVENTARIO
-async function loadInv(){await loadProds();ri()}
+async function loadInv(){const nid=localStorage.getItem('nid')||1;prods=await(await fetch(`/api/productos?negocio_id=${nid}`)).json(); const cats=await(await fetch(`/api/categorias?negocio_id=${nid}`)).json();
+const ic=document.getElementById('ic');const v=ic.value;ic.innerHTML='<option value="">Todas</option>'+cats.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');ic.value=v;ri()}
 function ri(){const q=document.getElementById('ib').value.toLowerCase(),c=document.getElementById('ic').value;const f=prods.filter(p=>(p.nombre.toLowerCase().includes(q)||p.sku.includes(q))&&(!c||p.categoria===c));
 document.getElementById('it').innerHTML=f.map(p=>{const s=p.stock<=0?'br':p.stock<=p.stock_minimo?'bo':'bg';const l=p.stock<=0?'Sin Stock':p.stock<=p.stock_minimo?'Bajo':'OK';
 return`<tr><td style="font-weight:700;color:var(--text)">${p.sku}</td><td style="color:var(--text);font-weight:600">${p.nombre} ${p.es_pesable?'<span class="badge bo">Pesable</span>':''}</td><td><span class="badge bb">${p.categoria}</span></td><td><input class="ed" type="number" value="${p.precio}" onchange="ef(${p.id},'precio',this.value)"></td><td><input class="ed" type="number" value="${p.stock}" step="0.1" onchange="ef(${p.id},'stock',this.value)"></td><td><span class="badge ${s}">${l}</span></td><td><button class="btn btn-sm btn-o" onclick="editP(${p.id})"><i class="fas fa-pen"></i></button> <button class="btn btn-sm btn-r" onclick="delP(${p.id})"><i class="fas fa-trash"></i></button></td></tr>`}).join('')}
@@ -386,77 +402,92 @@ async function ef(id,f,v){await fetch('/api/productos/'+id,{method:'PUT',headers
 async function delP(id){if(!confirm('Eliminar?'))return;await fetch('/api/productos/'+id,{method:'DELETE'});toast('Eliminado');loadInv()}
 function abrirMP(){document.getElementById('mp-t').textContent='Nuevo Producto';['mp-id','mp-sku','mp-cb','mp-nom','mp-pre','mp-stk'].forEach(i=>document.getElementById(i).value='');document.getElementById('mp-min').value='5';document.getElementById('mp-pes').value='false';document.getElementById('mp-cat').value='General';document.getElementById('m-prod').classList.add('show')}
 function editP(id){const p=prods.find(x=>x.id===id);if(!p)return;document.getElementById('mp-t').textContent='Editar';document.getElementById('mp-id').value=p.id;document.getElementById('mp-sku').value=p.sku;document.getElementById('mp-cb').value=p.codigo_barra;document.getElementById('mp-nom').value=p.nombre;document.getElementById('mp-pre').value=p.precio;document.getElementById('mp-stk').value=p.stock;document.getElementById('mp-min').value=p.stock_minimo;document.getElementById('mp-pes').value=p.es_pesable?'true':'false';document.getElementById('mp-cat').value=p.categoria;document.getElementById('m-prod').classList.add('show')}
-async function guardarP(){const id=document.getElementById('mp-id').value;const d={sku:document.getElementById('mp-sku').value,codigo_barra:document.getElementById('mp-cb').value,nombre:document.getElementById('mp-nom').value,precio:document.getElementById('mp-pre').value,stock:document.getElementById('mp-stk').value,stock_minimo:document.getElementById('mp-min').value,es_pesable:document.getElementById('mp-pes').value==='true',categoria:document.getElementById('mp-cat').value};
+async function guardarP(){const id=document.getElementById('mp-id').value;const d={sku:document.getElementById('mp-sku').value,codigo_barra:document.getElementById('mp-cb').value,nombre:document.getElementById('mp-nom').value,precio:document.getElementById('mp-pre').value,stock:document.getElementById('mp-stk').value,stock_minimo:document.getElementById('mp-min').value,es_pesable:document.getElementById('mp-pes').value==='true',categoria:document.getElementById('mp-cat').value,negocio_id:localStorage.getItem('nid')||1};
 if(!d.sku||!d.nombre||!d.precio)return toast('Completa campos',true);
 if(id)await fetch('/api/productos/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});else await fetch('/api/productos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
 cerrarM('m-prod');toast('Guardado');loadInv()}
 
 // INFORMES
-async function loadInf(){const[sc,vr,vh]=await Promise.all([fetch('/api/informes/stock_categoria').then(r=>r.json()),fetch('/api/informes/ventas_resumen').then(r=>r.json()),fetch('/api/ventas_hoy').then(r=>r.json())]);
+async function loadInf(){const nid=localStorage.getItem('nid')||1;const[sc,vr,vh]=await Promise.all([fetch(`/api/informes/stock_categoria?negocio_id=${nid}`).then(r=>r.json()),fetch(`/api/informes/ventas_resumen?negocio_id=${nid}`).then(r=>r.json()),fetch(`/api/ventas_hoy?negocio_id=${nid}`).then(r=>r.json())]);
 const ti=sc.reduce((s,c)=>s+c.valor_inventario,0);const ts=sc.reduce((s,c)=>s+c.total_stock,0);
 document.getElementById('inf-stats').innerHTML=`<div class="sc"><div class="lb">Categorias</div><div class="vl">${sc.length}</div><div class="ic"><i class="fas fa-layer-group"></i></div></div><div class="sc"><div class="lb">Stock Total</div><div class="vl">${Math.round(ts)}</div><div class="ic"><i class="fas fa-cubes"></i></div></div><div class="sc"><div class="lb">Valor Inventario</div><div class="vl">${F(ti)}</div><div class="ic"><i class="fas fa-coins"></i></div></div><div class="sc"><div class="lb">Ventas Historicas</div><div class="vl">${F(vr.historico.total)}</div><div class="ic"><i class="fas fa-chart-line"></i></div></div>`;
 document.getElementById('inf-cat').innerHTML=sc.map(c=>`<tr><td style="font-weight:700;color:var(--text)"><span class="badge bb">${c.categoria}</span></td><td>${c.total_productos}</td><td>${Math.round(c.total_stock)}</td><td style="color:var(--gold-light);font-weight:700">${F(c.valor_inventario)}</td><td>${c.bajo_stock?`<span class="badge br">${c.bajo_stock}</span>`:'<span class="badge bg">0</span>'}</td></tr>`).join('');
 document.getElementById('inf-ventas').innerHTML=vh.ventas.map(v=>`<tr><td style="font-weight:700">#${v.id}</td><td>${v.fecha}</td><td style="color:var(--gold-light);font-weight:700">${F(v.total)}</td><td><span class="badge bb">${v.metodo_pago}</span></td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;padding:16px">Sin ventas hoy</td></tr>'}
 
 // CLIENTES
-async function loadCli(){clientes=await(await fetch('/api/clientes')).json();rcl()}
+async function loadCli(){const nid=localStorage.getItem('nid')||1;clientes=await(await fetch(`/api/clientes?negocio_id=${nid}`)).json();rcl()}
 function rcl(){const q=document.getElementById('cb').value.toLowerCase();const f=clientes.filter(c=>c.nombre.toLowerCase().includes(q)||(c.rut&&c.rut.includes(q)));
 document.getElementById('cl-grid').innerHTML=f.map(c=>`<div class="cuenta-card" onclick="verCuenta(${c.id})"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="cc-name"><i class="fas fa-user" style="color:var(--blue-light);margin-right:6px"></i>${c.nombre}</div><div class="cc-rut">${c.rut||'Sin RUT'} | ${c.telefono||'Sin tel.'}</div></div><div style="text-align:right"><div style="font-size:.7rem;color:var(--muted)">Deuda</div><div class="cc-saldo" style="color:${c.saldo_pendiente>0?'var(--red)':'var(--green)'}">${F(c.saldo_pendiente)}</div></div></div><div style="margin-top:8px;display:flex;gap:6px"><button class="btn btn-sm btn-o" onclick="event.stopPropagation();editC(${c.id})"><i class="fas fa-pen"></i></button><button class="btn btn-sm btn-r" onclick="event.stopPropagation();delC(${c.id})"><i class="fas fa-trash"></i></button></div></div>`).join('')||'<div style="text-align:center;padding:40px;color:var(--muted);grid-column:1/-1"><i class="fas fa-users" style="font-size:2rem;opacity:.3;display:block;margin-bottom:8px"></i>Sin clientes registrados</div>';
 document.getElementById('cuenta-det').style.display='none'}
-async function verCuenta(id){cliSelId=id;const r=await(await fetch('/api/clientes/'+id+'/cuenta')).json();
+async function verCuenta(id){cliSelId=id;const nid=localStorage.getItem('nid')||1;const r=await(await fetch(`/api/clientes/${id}/cuenta?negocio_id=${nid}`)).json();
 document.getElementById('cd-name').textContent=r.cliente.nombre;document.getElementById('cd-saldo').textContent=F(r.cliente.saldo_pendiente);
 document.getElementById('cd-movs').innerHTML=r.movimientos.map(m=>`<tr><td>${m.fecha}</td><td><span class="badge ${m.tipo==='cargo'?'br':'bg'}">${m.tipo==='cargo'?'Cargo':'Abono'}</span></td><td style="font-weight:700;color:${m.tipo==='cargo'?'var(--red)':'var(--green)'}">${m.tipo==='cargo'?'-':'+'} ${F(m.monto)}</td><td>${m.descripcion}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;padding:16px">Sin movimientos</td></tr>';
 document.getElementById('cuenta-det').style.display='block'}
 function abrirMC(){document.getElementById('mc-t').textContent='Nuevo Cliente';['mc-id','mc-nom','mc-rut','mc-tel','mc-email','mc-dir'].forEach(i=>document.getElementById(i).value='');document.getElementById('m-cli').classList.add('show')}
 function editC(id){const c=clientes.find(x=>x.id===id);if(!c)return;document.getElementById('mc-t').textContent='Editar';document.getElementById('mc-id').value=c.id;document.getElementById('mc-nom').value=c.nombre;document.getElementById('mc-rut').value=c.rut;document.getElementById('mc-tel').value=c.telefono;document.getElementById('mc-email').value=c.email;document.getElementById('mc-dir').value=c.direccion;document.getElementById('m-cli').classList.add('show')}
-async function guardarC(){const id=document.getElementById('mc-id').value;const d={nombre:document.getElementById('mc-nom').value,rut:document.getElementById('mc-rut').value,telefono:document.getElementById('mc-tel').value,email:document.getElementById('mc-email').value,direccion:document.getElementById('mc-dir').value};
+async function guardarC(){const id=document.getElementById('mc-id').value;const d={nombre:document.getElementById('mc-nom').value,rut:document.getElementById('mc-rut').value,telefono:document.getElementById('mc-tel').value,email:document.getElementById('mc-email').value,direccion:document.getElementById('mc-dir').value,negocio_id:localStorage.getItem('nid')||1};
 if(!d.nombre)return toast('Nombre requerido',true);
 if(id)await fetch('/api/clientes/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});else await fetch('/api/clientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
 cerrarM('m-cli');toast('Cliente guardado');loadCli()}
 async function delC(id){if(!confirm('Eliminar cliente?'))return;await fetch('/api/clientes/'+id,{method:'DELETE'});toast('Eliminado');loadCli()}
 function abrirAbono(){document.getElementById('ab-monto').value='';document.getElementById('ab-desc').value='Abono de cliente';document.getElementById('m-abono').classList.add('show')}
 async function confirmarAbono(){const m=parseFloat(document.getElementById('ab-monto').value);if(!m||m<=0)return toast('Monto invalido',true);
-await fetch('/api/clientes/'+cliSelId+'/abono',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({monto:m,descripcion:document.getElementById('ab-desc').value})});
+const nid=localStorage.getItem('nid')||1;
+await fetch('/api/clientes/'+cliSelId+'/abono',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({monto:m,descripcion:document.getElementById('ab-desc').value,negocio_id:nid})});
 cerrarM('m-abono');toast('Abono registrado');verCuenta(cliSelId);loadCli()}
 
 // CIERRE
-async function loadCierre(){const r=await(await fetch('/api/ventas_hoy')).json();const ef=r.por_metodo['Efectivo']||0,db=r.por_metodo['Debito']||0,cr=r.por_metodo['Credito']||0,fi=r.por_metodo['Fiado']||0;
+async function loadCierre(){const nid=localStorage.getItem('nid')||1;const r=await(await fetch(`/api/ventas_hoy?negocio_id=${nid}`)).json();const ef=r.por_metodo['Efectivo']||0,db=r.por_metodo['Debito']||0,cr=r.por_metodo['Credito']||0,fi=r.por_metodo['Fiado']||0;
 document.getElementById('cr').innerHTML=`<div class="cierre-row"><span><i class="fas fa-money-bill-wave" style="color:var(--green);margin-right:8px"></i>Efectivo</span><span style="font-weight:700">${F(ef)}</span></div><div class="cierre-row"><span><i class="fas fa-credit-card" style="color:var(--blue-light);margin-right:8px"></i>Debito</span><span style="font-weight:700">${F(db)}</span></div><div class="cierre-row"><span><i class="far fa-credit-card" style="color:var(--gold-light);margin-right:8px"></i>Credito</span><span style="font-weight:700">${F(cr)}</span></div><div class="cierre-row"><span><i class="fas fa-handshake" style="color:var(--orange);margin-right:8px"></i>Fiado</span><span style="font-weight:700">${F(fi)}</span></div><div class="cierre-row"><span>Ventas: ${r.num_ventas}</span><span>TOTAL: ${F(r.total)}</span></div>`;
 document.getElementById('cv').innerHTML=r.ventas.map(v=>`<tr><td style="font-weight:700">#${v.id}</td><td>${v.fecha}</td><td style="color:var(--gold-light);font-weight:700">${F(v.total)}</td><td><span class="badge bb">${v.metodo_pago}</span></td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;padding:16px">Sin ventas</td></tr>'}
-async function hacerCierre(){if(!confirm('Realizar cierre de caja?'))return;const r=await(await fetch('/api/cierre_caja',{method:'POST'})).json();if(r.ok){toast('Cierre #'+r.cierre_id+' - '+F(r.total));loadCierre();descargarPDF('cierre_caja');}}
+async function hacerCierre(){if(!confirm('Realizar cierre de caja?'))return;const nid=localStorage.getItem('nid')||1;const r=await(await fetch('/api/cierre_caja',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({negocio_id:nid})})).json();if(r.ok){toast('Cierre #'+r.cierre_id+' - '+F(r.total));loadCierre();descargarPDF('cierre_caja');}}
 
 // PDF GENERATOR
-async function descargarPDF(tipo){const{jsPDF}=window.jspdf;const doc=new jspdf.jsPDF();const t=`Informe de ${tipo.toUpperCase().replace('_',' ')}`;const d=`Generado el ${new Date().toLocaleString('es-CL')}`;doc.setFontSize(18);doc.text(t,14,20);doc.setFontSize(10);doc.setTextColor(100);doc.text(d,14,28);let head=[],body=[];if(tipo==='productos'){head=[['SKU','Nombre','Cat.','Precio','Stock']];const res=await(await fetch('/api/productos')).json();body=res.map(p=>[p.sku,p.nombre,p.categoria,F(p.precio),p.stock.toString()]);}else if(tipo==='categorias'){head=[['Categoría','Total Prod.','Stock Total','Valor Inv.']];const res=await(await fetch('/api/informes/stock_categoria')).json();body=res.map(c=>[c.categoria,c.total_productos.toString(),Math.round(c.total_stock).toString(),F(c.valor_inventario)]);}else if(tipo==='clientes'){head=[['Nombre','RUT','Teléfono','Email','Deuda']];const res=await(await fetch('/api/clientes')).json();body=res.map(c=>[c.nombre,c.rut||'-',c.telefono||'-',c.email||'-',F(c.saldo_pendiente)]);}else if(tipo==='cierre_caja'){head=[['Hora','Total','Método Pago']];const res=await(await fetch('/api/ventas_hoy')).json();body=res.ventas.map(v=>[v.fecha,F(v.total),v.metodo_pago]);doc.autoTable({startY:35,head,body,theme:'grid',headStyles:{fillColor:[21,101,192]}});const fY=doc.lastAutoTable.finalY+10;doc.setFontSize(12);doc.setTextColor(0);doc.text(`TOTAL DEL DÍA: ${F(res.total)}`,14,fY);doc.setFontSize(10);doc.text(`Ventas: ${res.num_ventas}  |  Efectivo: ${F(res.por_metodo['Efectivo']||0)}  |  Débito: ${F(res.por_metodo['Debito']||0)}  |  Crédito: ${F(res.por_metodo['Credito']||0)}  |  Fiado: ${F(res.por_metodo['Fiado']||0)}`,14,fY+6);window.open(doc.output('bloburl'), '_blank');return;}
+async function descargarPDF(tipo){const{jsPDF}=window.jspdf;const doc=new jspdf.jsPDF();const t=`Informe de ${tipo.toUpperCase().replace('_',' ')}`;const d=`Generado el ${new Date().toLocaleString('es-CL')}`;doc.setFontSize(18);doc.text(t,14,20);doc.setFontSize(10);doc.setTextColor(100);doc.text(d,14,28);let head=[],body=[];const nid=localStorage.getItem('nid')||1;if(tipo==='productos'){head=[['SKU','Nombre','Cat.','Precio','Stock']];const res=await(await fetch(`/api/productos?negocio_id=${nid}`)).json();body=res.map(p=>[p.sku,p.nombre,p.categoria,F(p.precio),p.stock.toString()]);}else if(tipo==='categorias'){head=[['Categoría','Total Prod.','Stock Total','Valor Inv.']];const res=await(await fetch(`/api/informes/stock_categoria?negocio_id=${nid}`)).json();body=res.map(c=>[c.categoria,c.total_productos.toString(),Math.round(c.total_stock).toString(),F(c.valor_inventario)]);}else if(tipo==='clientes'){head=[['Nombre','RUT','Teléfono','Email','Deuda']];const res=await(await fetch(`/api/clientes?negocio_id=${nid}`)).json();body=res.map(c=>[c.nombre,c.rut||'-',c.telefono||'-',c.email||'-',F(c.saldo_pendiente)]);}else if(tipo==='cierre_caja'){head=[['Hora','Total','Método Pago']];const res=await(await fetch(`/api/ventas_hoy?negocio_id=${nid}`)).json();body=res.ventas.map(v=>[v.fecha,F(v.total),v.metodo_pago]);doc.autoTable({startY:35,head,body,theme:'grid',headStyles:{fillColor:[21,101,192]}});const fY=doc.lastAutoTable.finalY+10;doc.setFontSize(12);doc.setTextColor(0);doc.text(`TOTAL DEL DÍA: ${F(res.total)}`,14,fY);doc.setFontSize(10);doc.text(`Ventas: ${res.num_ventas}  |  Efectivo: ${F(res.por_metodo['Efectivo']||0)}  |  Débito: ${F(res.por_metodo['Debito']||0)}  |  Crédito: ${F(res.por_metodo['Credito']||0)}  |  Fiado: ${F(res.por_metodo['Fiado']||0)}`,14,fY+6);window.open(doc.output('bloburl'), '_blank');return;}
 doc.autoTable({startY:35,head,body,theme:'striped',headStyles:{fillColor:[21,101,192]}});window.open(doc.output('bloburl'), '_blank');toast('Mostrando PDF',false);}
 
 // CAJEROS
 let cajeros=[];
-async function loadCajeros(){cajeros=await(await fetch('/api/cajeros')).json();rcj()}
+async function loadCajeros(){const nid=localStorage.getItem('nid')||1;cajeros=await(await fetch(`/api/cajeros?negocio_id=${nid}`)).json();rcj()}
 function rcj(){
 document.getElementById('cj-grid').innerHTML=cajeros.map(c=>`<div class="cuenta-card" style="display:flex;justify-content:space-between;align-items:center"><div><div class="cc-name"><i class="fas fa-user-tie" style="color:var(--gold-light);margin-right:6px"></i>${c.nombre}</div><div class="cc-rut">Rol: ${c.rol==='admin_local'?'Admin. Local':'Cajero'} | Turno: ${c.turno}</div></div><button class="btn btn-sm btn-r" onclick="delCajero(${c.id})"><i class="fas fa-trash"></i></button></div>`).join('')||'<div style="text-align:center;padding:40px;color:var(--muted);grid-column:1/-1">Sin cajeros activos</div>'}
 function abrirMCajero(){document.getElementById('mcj-nom').value='';document.getElementById('mcj-rut').value='';document.getElementById('mcj-pin').value='';document.getElementById('mcj-tur').value='Mañana';document.getElementById('mcj-rol').value='cajero';document.getElementById('m-caj').classList.add('show')}
-async function guardarCajero(){const d={nombre:document.getElementById('mcj-nom').value,rut:document.getElementById('mcj-rut').value,turno:document.getElementById('mcj-tur').value,pin:document.getElementById('mcj-pin').value,rol:document.getElementById('mcj-rol').value};
+async function guardarCajero(){const d={nombre:document.getElementById('mcj-nom').value,rut:document.getElementById('mcj-rut').value,turno:document.getElementById('mcj-tur').value,pin:document.getElementById('mcj-pin').value,rol:document.getElementById('mcj-rol').value,negocio_id:localStorage.getItem('nid')||1};
 if(!d.nombre)return toast('Nombre requerido',true);await fetch('/api/cajeros',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});cerrarM('m-caj');toast('Guardado');loadCajeros()}
 async function delCajero(id){if(!confirm('Eliminar cajero?'))return;await fetch('/api/cajeros/'+id,{method:'DELETE'});toast('Eliminado');loadCajeros()}
 
 // CATEGORIAS MANAGEMENT
-async function loadCats(){const r=await(await fetch('/api/categorias')).json();
+async function loadCats(){const nid=localStorage.getItem('nid')||1;const r=await(await fetch(`/api/categorias?negocio_id=${nid}`)).json();
 document.getElementById('cats-grid').innerHTML=r.map(c=>`
 <div class="cuenta-card" style="display:flex;justify-content:space-between;align-items:center;padding:12px">
 <div style="font-weight:800"><i class="fas fa-tag" style="color:var(--blue-light);margin-right:8px"></i>${c.nombre}</div>
 <button class="btn btn-sm btn-r" onclick="delCat(${c.id})"><i class="fas fa-trash"></i></button>
 </div>`).join('')||'<div style="text-align:center;padding:40px;color:var(--muted);grid-column:1/-1">Sin categorías</div>'}
 function abrirMCat(){document.getElementById('mct-nom').value='';document.getElementById('m-cat').classList.add('show')}
-async function guardarCat(){const n=document.getElementById('mct-nom').value;if(!n)return toast('Nombre requerido',true);await fetch('/api/categorias',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre:n})});cerrarM('m-cat');toast('Guardada');loadCats()}
+async function guardarCat(){const n=document.getElementById('mct-nom').value;if(!n)return toast('Nombre requerido',true);await fetch('/api/categorias',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre:n,negocio_id:localStorage.getItem('nid')||1})});cerrarM('m-cat');toast('Guardada');loadCats()}
 async function delCat(id){if(!confirm('Borrar categoría?'))return;await fetch('/api/categorias/'+id,{method:'DELETE'});toast('Eliminada');loadCats()}
+
+// SUPER ADMIN
+async function loadSuper(){const r=await(await fetch('/api/super/negocios')).json();
+document.getElementById('super-grid').innerHTML=r.map(n=>`
+<div class="card" style="padding:20px;border-left:4px solid ${n.activo?'var(--blue-light)':'var(--muted)'}">
+<div style="font-size:1.2rem;font-weight:800">${n.nombre}</div>
+<div style="color:var(--muted);margin:8px 0">ID: ${n.id} | PIN Admin: <b>${n.admin_pin}</b></div>
+<div style="display:flex;gap:5px;margin-top:10px">
+<button class="btn btn-sm btn-g" onclick="entrarNegocio(${n.id},'${n.nombre}')"><i class="fas fa-sign-in-alt"></i> Gestionar Local</button>
+</div></div>`).join('')}
+function abrirMNegocio(){document.getElementById('mn-nom').value='';document.getElementById('mn-pin').value='';document.getElementById('m-neg').classList.add('show')}
+async function guardarNegocio(){const n=document.getElementById('mn-nom').value,p=document.getElementById('mn-pin').value;if(!n||!p)return toast('Datos incompletos',true);
+await fetch('/api/super/negocios',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre:n,pin:p})});cerrarM('m-neg');toast('Negocio creado');loadSuper()}
+function entrarNegocio(id,nom){localStorage.setItem('nid',id);localStorage.setItem('user_rol','admin');localStorage.setItem('user_nom','Super: '+nom);location.reload()}
 
 // CONFIGURACION
 window.configNegocio={};
-async function loadConfig(){const r=await(await fetch('/api/configuracion')).json();if(r.nombre){window.configNegocio=r;
+async function loadConfig(){const nid=localStorage.getItem('nid')||1;const r=await(await fetch(`/api/configuracion?negocio_id=${nid}`)).json();if(r.nombre){window.configNegocio=r;
 const sd=document.getElementById('side-logo-text');if(sd){sd.innerHTML=r.logo_url?`<img src="${r.logo_url}" style="max-height:30px;border-radius:4px;margin-right:6px;object-fit:contain;background:#fff;padding:2px"><span style="color:var(--blue-light);font-size:1.1rem;white-space:nowrap">${r.nombre}</span>`:`<span class="mr" style="font-size:0.9rem">${r.nombre.substring(0,2).toUpperCase()}</span><span class="pos" style="font-size:1rem;margin-left:4px;white-space:nowrap">${r.nombre.substring(2)}</span>`;}
 if(document.getElementById('footer-brand'))document.getElementById('footer-brand').textContent=r.nombre;
 ['nom','tel','dir','rut','logo','pin'].forEach(k=>{const e=document.getElementById('cfg-'+k);if(e)e.value=r[k==='nom'?'nombre':k==='tel'?'telefono':k==='dir'?'direccion':k==='logo'?'logo_url':k==='pin'?'admin_pin':k]||(k==='pin'?'admin':'');});}}
-async function guardarConfig(){const d={admin_pin:document.getElementById('cfg-pin').value,nombre:document.getElementById('cfg-nom').value,telefono:document.getElementById('cfg-tel').value,direccion:document.getElementById('cfg-dir').value,rut:document.getElementById('cfg-rut').value,logo_url:document.getElementById('cfg-logo').value};if(!d.nombre||!d.admin_pin)return toast('Nombre y PIN requeridos',true);await fetch('/api/configuracion',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});toast('Guardado');loadConfig()}
+async function guardarConfig(){const d={admin_pin:document.getElementById('cfg-pin').value,nombre:document.getElementById('cfg-nom').value,telefono:document.getElementById('cfg-tel').value,direccion:document.getElementById('cfg-dir').value,rut:document.getElementById('cfg-rut').value,logo_url:document.getElementById('cfg-logo').value,negocio_id:localStorage.getItem('nid')||1};if(!d.nombre||!d.admin_pin)return toast('Nombre y PIN requeridos',true);await fetch('/api/configuracion',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});toast('Guardado');loadConfig()}
 
 // LOGIN Y SEGURIDAD
 let sysRol=null,sysNom='';

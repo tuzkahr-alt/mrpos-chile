@@ -34,10 +34,22 @@ db = SQLAlchemy(app)
 # ══════════════════════════════════════════════════════════════
 # MODELOS DE BASE DE DATOS
 # ══════════════════════════════════════════════════════════════
+class Negocio(db.Model):
+    __tablename__ = 'negocios'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    telefono = db.Column(db.String(50), default='')
+    direccion = db.Column(db.String(200), default='')
+    rut = db.Column(db.String(20), default='')
+    logo_url = db.Column(db.String(300), default='')
+    admin_pin = db.Column(db.String(20), default='1234')
+    activo = db.Column(db.Boolean, default=True)
+
 class Producto(db.Model):
     __tablename__ = 'productos'
     id = db.Column(db.Integer, primary_key=True)
-    sku = db.Column(db.String(20), unique=True, nullable=False)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False, default=1)
+    sku = db.Column(db.String(20), nullable=False)
     codigo_barra = db.Column(db.String(20), default='')
     nombre = db.Column(db.String(100), nullable=False)
     precio = db.Column(db.Float, nullable=False, default=0)
@@ -51,14 +63,14 @@ class Producto(db.Model):
 class Venta(db.Model):
     __tablename__ = 'ventas'
     id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False, default=1)
     fecha = db.Column(db.DateTime, default=datetime.utcnow)
     total = db.Column(db.Float, nullable=False)
-    metodo_pago = db.Column(db.String(20), default='Efectivo')  # Efectivo, Debito, Credito, Fiado
+    metodo_pago = db.Column(db.String(20), default='Efectivo')
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=True)
     monto_pagado = db.Column(db.Float, default=0)
     vuelto = db.Column(db.Float, default=0)
     detalles = db.relationship('DetalleVenta', backref='venta', lazy=True)
-    cliente = db.relationship('Cliente', backref='ventas')
 
 class DetalleVenta(db.Model):
     __tablename__ = 'detalle_venta'
@@ -68,11 +80,11 @@ class DetalleVenta(db.Model):
     cantidad = db.Column(db.Float, nullable=False)
     precio_unitario = db.Column(db.Float, nullable=False)
     subtotal = db.Column(db.Float, nullable=False)
-    producto = db.relationship('Producto')
 
 class CierreCaja(db.Model):
     __tablename__ = 'cierre_caja'
     id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False, default=1)
     fecha = db.Column(db.DateTime, default=datetime.utcnow)
     total_efectivo = db.Column(db.Float, default=0)
     total_debito = db.Column(db.Float, default=0)
@@ -84,29 +96,31 @@ class CierreCaja(db.Model):
 class Cliente(db.Model):
     __tablename__ = 'clientes'
     id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False, default=1)
     nombre = db.Column(db.String(100), nullable=False)
     rut = db.Column(db.String(15), default='')
     telefono = db.Column(db.String(20), default='')
     email = db.Column(db.String(100), default='')
     direccion = db.Column(db.String(200), default='')
-    saldo_pendiente = db.Column(db.Float, default=0)  # Deuda acumulada
+    saldo_pendiente = db.Column(db.Float, default=0)
     activo = db.Column(db.Boolean, default=True)
     creado = db.Column(db.DateTime, default=datetime.utcnow)
 
 class MovimientoCuenta(db.Model):
     __tablename__ = 'movimiento_cuenta'
     id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False, default=1)
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False)
     fecha = db.Column(db.DateTime, default=datetime.utcnow)
-    tipo = db.Column(db.String(10))  # 'cargo' o 'abono'
+    tipo = db.Column(db.String(10))
     monto = db.Column(db.Float, nullable=False)
     descripcion = db.Column(db.String(200), default='')
     venta_id = db.Column(db.Integer, db.ForeignKey('ventas.id'), nullable=True)
-    cliente = db.relationship('Cliente', backref='movimientos')
 
 class Cajero(db.Model):
     __tablename__ = 'cajero'
     id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False, default=1)
     nombre = db.Column(db.String(100), nullable=False)
     rut = db.Column(db.String(20), default='')
     pin = db.Column(db.String(4), nullable=False)
@@ -114,20 +128,11 @@ class Cajero(db.Model):
     activo = db.Column(db.Boolean, default=True)
     rol = db.Column(db.String(20), default='cajero')
 
-class Configuracion(db.Model):
-    __tablename__ = 'configuracion'
-    id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(100), default='MRPOS Chile')
-    telefono = db.Column(db.String(50), default='')
-    direccion = db.Column(db.String(200), default='')
-    rut = db.Column(db.String(20), default='')
-    logo_url = db.Column(db.String(300), default='')
-    admin_pin = db.Column(db.String(20), default='admin')
-
 class Categoria(db.Model):
     __tablename__ = 'categorias'
     id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(50), unique=True, nullable=False)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False, default=1)
+    nombre = db.Column(db.String(50), nullable=False)
 
 # ══════════════════════════════════════════════════════════════
 # LÓGICA BALANZA DIGI SM-100
@@ -172,7 +177,8 @@ def procesar_codigo_balanza(codigo_ean13):
 # ── PRODUCTOS ──
 @app.route('/api/productos', methods=['GET'])
 def get_productos():
-    productos = Producto.query.filter_by(activo=True).all()
+    nid = request.args.get('negocio_id', 1)
+    productos = Producto.query.filter_by(negocio_id=nid, activo=True).all()
     return jsonify([{
         'id': p.id, 'sku': p.sku, 'codigo_barra': p.codigo_barra,
         'nombre': p.nombre, 'precio': p.precio, 'stock': p.stock,
@@ -183,10 +189,10 @@ def get_productos():
 @app.route('/api/productos', methods=['POST'])
 def crear_producto():
     d = request.json
-    p = Producto(sku=d['sku'], nombre=d['nombre'], precio=float(d['precio']),
-                 stock=float(d.get('stock', 0)), es_pesable=d.get('es_pesable', False),
-                 codigo_barra=d.get('codigo_barra', ''), categoria=d.get('categoria', 'General'),
-                 stock_minimo=float(d.get('stock_minimo', 5)))
+    p = Producto(negocio_id=d.get('negocio_id', 1), sku=d['sku'], nombre=d['nombre'], 
+                 precio=float(d['precio']), stock=float(d.get('stock', 0)), 
+                 es_pesable=d.get('es_pesable', False), codigo_barra=d.get('codigo_barra', ''), 
+                 categoria=d.get('categoria', 'General'), stock_minimo=float(d.get('stock_minimo', 5)))
     db.session.add(p)
     db.session.commit()
     return jsonify({'ok': True, 'id': p.id})
@@ -211,11 +217,12 @@ def eliminar_producto(pid):
 # ── BUSCAR POR CÓDIGO (Barras / Balanza) ──
 @app.route('/api/buscar_codigo', methods=['POST'])
 def buscar_codigo():
-    codigo = request.json.get('codigo', '').strip()
-    # Verificar si es código de balanza Digi SM-100
+    d = request.json
+    codigo = d.get('codigo', '').strip()
+    nid = d.get('negocio_id', 1)
     info_balanza = procesar_codigo_balanza(codigo)
     if info_balanza['es_balanza']:
-        prod = Producto.query.filter_by(sku=info_balanza['sku'], activo=True).first()
+        prod = Producto.query.filter_by(negocio_id=nid, sku=info_balanza['sku'], activo=True).first()
         if prod:
             return jsonify({
                 'encontrado': True, 'es_balanza': True,
@@ -227,6 +234,7 @@ def buscar_codigo():
         return jsonify({'encontrado': False, 'es_balanza': True, 'msg': f'SKU {info_balanza["sku"]} no encontrado'})
     # Búsqueda normal por código de barra o SKU
     prod = Producto.query.filter(
+        Producto.negocio_id == nid,
         (Producto.codigo_barra == codigo) | (Producto.sku == codigo),
         Producto.activo == True
     ).first()
@@ -245,10 +253,10 @@ def crear_venta():
     items = d.get('items', [])
     metodo = d.get('metodo_pago', 'Efectivo')
     cliente_id = d.get('cliente_id', None)
+    nid = d.get('negocio_id', 1)
     monto_pagado = float(d.get('monto_pagado', 0))
-    total = 0
-    venta = Venta(total=0, metodo_pago=metodo, cliente_id=cliente_id,
-                  monto_pagado=monto_pagado)
+    venta = Venta(negocio_id=nid, total=0, metodo_pago=metodo, 
+                  cliente_id=cliente_id, monto_pagado=monto_pagado)
     db.session.add(venta)
     db.session.flush()
     detalles_resp = []
@@ -274,8 +282,8 @@ def crear_venta():
         cli = Cliente.query.get(cliente_id)
         if cli:
             cli.saldo_pendiente += total
-            mov = MovimientoCuenta(cliente_id=cli.id, tipo='cargo', monto=total,
-                                   descripcion=f'Venta #{venta.id}', venta_id=venta.id)
+            mov = MovimientoCuenta(negocio_id=nid, cliente_id=cli.id, tipo='cargo', 
+                                   monto=total, descripcion=f'Venta #{venta.id}', venta_id=venta.id)
             db.session.add(mov)
     db.session.commit()
     return jsonify({'ok': True, 'venta_id': venta.id, 'total': total,
@@ -296,7 +304,8 @@ def get_venta(vid):
 @app.route('/api/ventas_hoy', methods=['GET'])
 def ventas_hoy():
     hoy = date.today()
-    ventas = Venta.query.filter(db.func.date(Venta.fecha) == hoy).all()
+    nid = request.args.get('negocio_id', 1)
+    ventas = Venta.query.filter(Venta.negocio_id == nid, db.func.date(Venta.fecha) == hoy).all()
     total = sum(v.total for v in ventas)
     por_metodo = {}
     for v in ventas:
@@ -312,13 +321,16 @@ def ventas_hoy():
 @app.route('/api/cierre_caja', methods=['POST'])
 def cierre_caja():
     hoy = date.today()
-    ventas = Venta.query.filter(db.func.date(Venta.fecha) == hoy).all()
+    d = request.json
+    nid = d.get('negocio_id', 1)
+    ventas = Venta.query.filter(Venta.negocio_id == nid, db.func.date(Venta.fecha) == hoy).all()
     t_ef = sum(v.total for v in ventas if v.metodo_pago == 'Efectivo')
     t_db = sum(v.total for v in ventas if v.metodo_pago == 'Debito')
     t_cr = sum(v.total for v in ventas if v.metodo_pago == 'Credito')
     t_fi = sum(v.total for v in ventas if v.metodo_pago == 'Fiado')
-    cierre = CierreCaja(total_efectivo=t_ef, total_debito=t_db, total_credito=t_cr,
-                        total_fiado=t_fi, total_general=t_ef+t_db+t_cr+t_fi, num_ventas=len(ventas))
+    cierre = CierreCaja(negocio_id=nid, total_efectivo=t_ef, total_debito=t_db, 
+                        total_credito=t_cr, total_fiado=t_fi, 
+                        total_general=t_ef+t_db+t_cr+t_fi, num_ventas=len(ventas))
     db.session.add(cierre)
     db.session.commit()
     return jsonify({
@@ -331,10 +343,11 @@ def cierre_caja():
 @app.route('/api/dashboard', methods=['GET'])
 def dashboard():
     hoy = date.today()
-    ventas_hoy_q = Venta.query.filter(db.func.date(Venta.fecha) == hoy).all()
+    nid = request.args.get('negocio_id', 1)
+    ventas_hoy_q = Venta.query.filter(Venta.negocio_id == nid, db.func.date(Venta.fecha) == hoy).all()
     total_hoy = sum(v.total for v in ventas_hoy_q)
-    bajo_stock = Producto.query.filter(Producto.stock <= Producto.stock_minimo, Producto.activo == True).all()
-    total_productos = Producto.query.filter_by(activo=True).count()
+    bajo_stock = Producto.query.filter(Producto.negocio_id == nid, Producto.stock <= Producto.stock_minimo, Producto.activo == True).all()
+    total_productos = Producto.query.filter_by(negocio_id=nid, activo=True).count()
     return jsonify({
         'ventas_hoy': len(ventas_hoy_q), 'total_hoy': total_hoy,
         'total_productos': total_productos,
@@ -346,13 +359,15 @@ def dashboard():
 # ── PRODUCTOS BAJO STOCK ──
 @app.route('/api/alertas', methods=['GET'])
 def alertas():
-    bajo = Producto.query.filter(Producto.stock <= Producto.stock_minimo, Producto.activo == True).all()
+    nid = request.args.get('negocio_id', 1)
+    bajo = Producto.query.filter(Producto.negocio_id == nid, Producto.stock <= Producto.stock_minimo, Producto.activo == True).all()
     return jsonify([{'id': p.id, 'nombre': p.nombre, 'stock': p.stock, 'stock_minimo': p.stock_minimo} for p in bajo])
 
 # ── CLIENTES ──
 @app.route('/api/clientes', methods=['GET'])
 def get_clientes():
-    clientes = Cliente.query.filter_by(activo=True).all()
+    nid = request.args.get('negocio_id', 1)
+    clientes = Cliente.query.filter_by(negocio_id=nid, activo=True).all()
     return jsonify([{'id': c.id, 'nombre': c.nombre, 'rut': c.rut,
                      'telefono': c.telefono, 'email': c.email,
                      'direccion': c.direccion, 'saldo_pendiente': c.saldo_pendiente
@@ -361,7 +376,8 @@ def get_clientes():
 @app.route('/api/clientes', methods=['POST'])
 def crear_cliente():
     d = request.json
-    c = Cliente(nombre=d['nombre'], rut=d.get('rut',''), telefono=d.get('telefono',''),
+    c = Cliente(negocio_id=d.get('negocio_id', 1), nombre=d['nombre'], 
+                rut=d.get('rut',''), telefono=d.get('telefono',''),
                 email=d.get('email',''), direccion=d.get('direccion',''))
     db.session.add(c)
     db.session.commit()
@@ -399,7 +415,8 @@ def abono_cliente(cid):
     c = Cliente.query.get_or_404(cid)
     d = request.json
     monto = float(d['monto'])
-    mov = MovimientoCuenta(cliente_id=cid, tipo='abono', monto=monto,
+    nid = d.get('negocio_id', 1)
+    mov = MovimientoCuenta(negocio_id=nid, cliente_id=cid, tipo='abono', monto=monto,
                            descripcion=d.get('descripcion', 'Abono de cliente'))
     db.session.add(mov)
     c.saldo_pendiente = max(0, c.saldo_pendiente - monto)
@@ -409,7 +426,8 @@ def abono_cliente(cid):
 # ── INFORMES ──
 @app.route('/api/informes/stock_categoria', methods=['GET'])
 def informe_stock_categoria():
-    productos = Producto.query.filter_by(activo=True).all()
+    nid = request.args.get('negocio_id', 1)
+    productos = Producto.query.filter_by(negocio_id=nid, activo=True).all()
     cats = {}
     for p in productos:
         if p.categoria not in cats:
@@ -425,8 +443,9 @@ def informe_stock_categoria():
 @app.route('/api/informes/ventas_resumen', methods=['GET'])
 def informe_ventas_resumen():
     hoy = date.today()
-    ventas_hoy = Venta.query.filter(db.func.date(Venta.fecha) == hoy).all()
-    todas = Venta.query.all()
+    nid = request.args.get('negocio_id', 1)
+    ventas_hoy = Venta.query.filter(Venta.negocio_id == nid, db.func.date(Venta.fecha) == hoy).all()
+    todas = Venta.query.filter_by(negocio_id=nid).all()
     por_metodo_hoy = {}
     for v in ventas_hoy:
         por_metodo_hoy[v.metodo_pago] = por_metodo_hoy.get(v.metodo_pago, 0) + v.total
@@ -449,7 +468,8 @@ def descargar_csv(tipo):
         cw.writerow(['SKU', 'Nombre', 'Categoria', 'Precio', 'Stock'])
         for p in productos: cw.writerow([p.sku, p.nombre, p.categoria, p.precio, p.stock])
     elif tipo == 'categorias':
-        productos = Producto.query.filter_by(activo=True).all()
+        nid = request.args.get('negocio_id', 1)
+        productos = Producto.query.filter_by(negocio_id=nid, activo=True).all()
         cats = {}
         for p in productos:
             if p.categoria not in cats: cats[p.categoria] = {'p':0,'s':0,'v':0}
@@ -466,13 +486,15 @@ def descargar_csv(tipo):
 # ── CAJEROS ──
 @app.route('/api/cajeros', methods=['GET'])
 def get_cajeros():
-    cajeros = Cajero.query.filter_by(activo=True).all()
+    nid = request.args.get('negocio_id', 1)
+    cajeros = Cajero.query.filter_by(negocio_id=nid, activo=True).all()
     return jsonify([{'id': c.id, 'nombre': c.nombre, 'rut': c.rut, 'turno': c.turno, 'rol': getattr(c, 'rol', 'cajero')} for c in cajeros])
 
 @app.route('/api/cajeros', methods=['POST'])
 def add_cajero():
     d = request.json
-    c = Cajero(nombre=d['nombre'], rut=d.get('rut',''), pin=d['pin'], turno=d.get('turno','Mañana'))
+    c = Cajero(negocio_id=d.get('negocio_id', 1), nombre=d['nombre'], 
+               rut=d.get('rut',''), pin=d['pin'], turno=d.get('turno','Mañana'))
     if 'rol' in d: c.rol = d['rol']
     db.session.add(c)
     db.session.commit()
@@ -488,16 +510,18 @@ def eliminar_cajero(cid):
 # ── CATEGORIAS ──
 @app.route('/api/categorias', methods=['GET'])
 def get_categorias():
-    cats = Categoria.query.all()
+    nid = request.args.get('negocio_id', 1)
+    cats = Categoria.query.filter_by(negocio_id=nid).all()
     return jsonify([{'id': c.id, 'nombre': c.nombre} for c in cats])
 
 @app.route('/api/categorias', methods=['POST'])
 def add_categoria():
     d = request.json
+    nid = d.get('negocio_id', 1)
     if not d.get('nombre'): return jsonify({'ok': False, 'msg': 'Nombre requerido'}), 400
-    if Categoria.query.filter_by(nombre=d['nombre']).first():
+    if Categoria.query.filter_by(negocio_id=nid, nombre=d['nombre']).first():
         return jsonify({'ok': False, 'msg': 'Ya existe'}), 400
-    c = Categoria(nombre=d['nombre'])
+    c = Categoria(negocio_id=nid, nombre=d['nombre'])
     db.session.add(c)
     db.session.commit()
     return jsonify({'ok': True, 'id': c.id})
@@ -515,30 +539,59 @@ def del_categoria(cid):
 def api_login():
     d = request.json
     pin = str(d.get('pin', '')).strip()
-    c = Configuracion.query.first()
-    admin_pin = c.admin_pin if c and getattr(c, 'admin_pin', None) else 'admin'
-    if pin == admin_pin:
-        return jsonify({'ok': True, 'rol': 'admin', 'nombre': 'Administrador General'})
+    
+    # MASTER PIN para Javier (Super Dueño)
+    if pin == '987654321':
+        return jsonify({'ok': True, 'rol': 'super', 'nombre': 'Javier (Master Admin)'})
+
+    # Buscar entre los administradores de negocios
+    negocio = Negocio.query.filter_by(admin_pin=pin, activo=True).first()
+    if negocio:
+        return jsonify({'ok': True, 'rol': 'admin', 'nombre': f'Dueño: {negocio.nombre}', 'negocio_id': negocio.id})
+
+    # Buscar entre los cajeros
     cajero = Cajero.query.filter_by(pin=pin, activo=True).first()
     if cajero:
         rol = getattr(cajero, 'rol', 'cajero')
-        return jsonify({'ok': True, 'rol': rol, 'nombre': cajero.nombre})
+        return jsonify({'ok': True, 'rol': rol, 'nombre': cajero.nombre, 'negocio_id': cajero.negocio_id})
+    
     return jsonify({'ok': False, 'msg': 'PIN de Acceso Incorrecto'})
+
+# ── SUPER ADMIN ROUTES ──
+@app.route('/api/super/negocios', methods=['GET'])
+def super_get_negocios():
+    negs = Negocio.query.all()
+    return jsonify([{
+        'id': n.id, 'nombre': n.nombre, 'admin_pin': n.admin_pin, 'activo': n.activo
+    } for n in negs])
+
+@app.route('/api/super/negocios', methods=['POST'])
+def super_add_negocio():
+    d = request.json
+    n = Negocio(nombre=d['nombre'], admin_pin=d.get('pin', '1234'))
+    db.session.add(n)
+    db.session.commit()
+    # Inicializar categorias para el nuevo negocio
+    nombres_cats = ['General', 'Bebidas', 'Abarrotes', 'Lácteos', 'Panadería', 'Fiambrería', 'Licores', 'Higiene', 'Limpieza', 'Farmacia']
+    for nc in nombres_cats:
+        db.session.add(Categoria(negocio_id=n.id, nombre=nc))
+    db.session.commit()
+    return jsonify({'ok': True, 'id': n.id})
 
 # ── CONFIGURACION NEGOCIO ──
 @app.route('/api/configuracion', methods=['GET'])
 def get_config():
-    c = Configuracion.query.first()
+    nid = request.args.get('negocio_id', 1)
+    c = Negocio.query.get(nid)
     if not c: return jsonify({})
-    return jsonify({'nombre': c.nombre, 'telefono': c.telefono, 'direccion': c.direccion, 'rut': c.rut, 'logo_url': c.logo_url, 'admin_pin': getattr(c, 'admin_pin', 'admin')})
+    return jsonify({'nombre': c.nombre, 'telefono': c.telefono, 'direccion': c.direccion, 'rut': c.rut, 'logo_url': c.logo_url, 'admin_pin': c.admin_pin})
 
 @app.route('/api/configuracion', methods=['PUT'])
 def update_config():
-    c = Configuracion.query.first()
-    if not c:
-        c = Configuracion()
-        db.session.add(c)
     d = request.json
+    nid = d.get('negocio_id', 1)
+    c = Negocio.query.get(nid)
+    if not c: return jsonify({'ok': False})
     for k in ['nombre', 'telefono', 'direccion', 'rut', 'logo_url', 'admin_pin']:
         if k in d: setattr(c, k, d[k])
     db.session.commit()
@@ -591,22 +644,22 @@ def index():
 # ══════════════════════════════════════════════════════════════
 def seed_data():
     """Carga productos de ejemplo para Chile"""
-    if Configuracion.query.count() == 0:
-        conf = Configuracion(nombre='MRPOS Chile', telefono='+569 00000000')
+    if Negocio.query.count() == 0:
+        conf = Negocio(nombre='MRPOS Chile Demo', telefono='+569 00000000', admin_pin='admin')
         db.session.add(conf)
         db.session.commit()
 
-    if Cajero.query.count() == 0:
-        c1 = Cajero(nombre='Cajero Principal', rut='11.111.111-1', pin='1234', turno='Mañana')
+    if Cajero.query.filter_by(negocio_id=1).count() == 0:
+        c1 = Cajero(negocio_id=1, nombre='Cajero Demo', rut='11.111.111-1', pin='1234', turno='Mañana')
         db.session.add(c1)
         db.session.commit()
         
-    if Producto.query.count() == 0:
-        # Asegurar categorias básicas
+    if Producto.query.filter_by(negocio_id=1).count() == 0:
+        # Asegurar categorias básicas negocio 1
         nombres_cats = ['General', 'Bebidas', 'Abarrotes', 'Lácteos', 'Panadería', 'Fiambrería', 'Licores', 'Higiene', 'Limpieza', 'Farmacia']
         for nc in nombres_cats:
-            if not Categoria.query.filter_by(nombre=nc).first():
-                db.session.add(Categoria(nombre=nc))
+            if not Categoria.query.filter_by(negocio_id=1, nombre=nc).first():
+                db.session.add(Categoria(negocio_id=1, nombre=nc))
         db.session.commit()
 
         productos = [
