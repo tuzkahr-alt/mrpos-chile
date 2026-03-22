@@ -496,6 +496,34 @@ def update_config():
     db.session.commit()
     return jsonify({'ok': True})
 
+# ── PWA SUPPORT (APP ANDROID) ──
+@app.route('/api/manifest.json')
+def manifest():
+    c = Configuracion.query.first()
+    nombre = c.nombre if (c and c.nombre) else 'MRPOS Chile'
+    return jsonify({
+        "name": nombre,
+        "short_name": "MRPOS",
+        "description": "Terminal Punto de Venta Inteligente",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0D0D0D",
+        "theme_color": "#1565C0",
+        "icons": [
+            {"src": "https://cdn-icons-png.flaticon.com/512/5165/5165971.png", "sizes": "512x512", "type": "image/png"}
+        ]
+    })
+
+@app.route('/sw.js')
+def service_worker():
+    sw = """
+    self.addEventListener('install', (e) => {
+        console.log('[Service Worker] Install');
+    });
+    self.addEventListener('fetch', (e) => {});
+    """
+    return Response(sw, mimetype="application/javascript")
+
 # ══════════════════════════════════════════════════════════════
 # TEMPLATE HTML (SPA) - se carga dinámicamente
 # ══════════════════════════════════════════════════════════════

@@ -8,6 +8,9 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<link rel="manifest" href="/api/manifest.json">
+<meta name="theme-color" content="#1565C0">
+<link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/5165/5165971.png">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--blue:#1565C0;--blue-light:#1E88E5;--gold:#C8860A;--gold-light:#F5A623;--dark:#0D0D0D;--dark2:#141414;--card:#1A1A1A;--text:#F0F0F0;--muted:#A0A0A0;--green:#25D366;--red:#E53935;--orange:#FF9800;--radius:14px}
@@ -395,8 +398,8 @@ document.getElementById('cv').innerHTML=r.ventas.map(v=>`<tr><td style="font-wei
 async function hacerCierre(){if(!confirm('Realizar cierre de caja?'))return;const r=await(await fetch('/api/cierre_caja',{method:'POST'})).json();if(r.ok){toast('Cierre #'+r.cierre_id+' - '+F(r.total));loadCierre();descargarPDF('cierre_caja');}}
 
 // PDF GENERATOR
-async function descargarPDF(tipo){const{jsPDF}=window.jspdf;const doc=new jsPDF();const t=`Informe de ${tipo.toUpperCase().replace('_',' ')}`;const d=`Generado el ${new Date().toLocaleString('es-CL')}`;doc.setFontSize(18);doc.text(t,14,20);doc.setFontSize(10);doc.setTextColor(100);doc.text(d,14,28);let head=[],body=[];if(tipo==='productos'){head=[['SKU','Nombre','Cat.','Precio','Stock']];const res=await(await fetch('/api/productos')).json();body=res.map(p=>[p.sku,p.nombre,p.categoria,F(p.precio),p.stock.toString()]);}else if(tipo==='categorias'){head=[['Categoría','Total Prod.','Stock Total','Valor Inv.']];const res=await(await fetch('/api/informes/stock_categoria')).json();body=res.map(c=>[c.categoria,c.total_productos.toString(),Math.round(c.total_stock).toString(),F(c.valor_inventario)]);}else if(tipo==='clientes'){head=[['Nombre','RUT','Teléfono','Email','Deuda']];const res=await(await fetch('/api/clientes')).json();body=res.map(c=>[c.nombre,c.rut||'-',c.telefono||'-',c.email||'-',F(c.saldo_pendiente)]);}else if(tipo==='cierre_caja'){head=[['Hora','Total','Método Pago']];const res=await(await fetch('/api/ventas_hoy')).json();body=res.ventas.map(v=>[v.fecha,F(v.total),v.metodo_pago]);doc.autoTable({startY:35,head,body,theme:'grid',headStyles:{fillColor:[200,134,10]}});const fY=doc.lastAutoTable.finalY+10;doc.setFontSize(12);doc.setTextColor(0);doc.text(`TOTAL DEL DÍA: ${F(res.total)}`,14,fY);doc.setFontSize(10);doc.text(`Ventas: ${res.num_ventas}  |  Efectivo: ${F(res.por_metodo['Efectivo']||0)}  |  Débito: ${F(res.por_metodo['Debito']||0)}  |  Crédito: ${F(res.por_metodo['Credito']||0)}  |  Fiado: ${F(res.por_metodo['Fiado']||0)}`,14,fY+6);doc.save(`CierreCaja_${new Date().toISOString().split('T')[0]}.pdf`);return;}
-doc.autoTable({startY:35,head,body,theme:'striped',headStyles:{fillColor:[21,101,192]}});doc.save(`Informe_${tipo}.pdf`);toast('Archivo PDF descargado',false);}
+async function descargarPDF(tipo){const{jsPDF}=window.jspdf;const doc=new jsPDF();const t=`Informe de ${tipo.toUpperCase().replace('_',' ')}`;const d=`Generado el ${new Date().toLocaleString('es-CL')}`;doc.setFontSize(18);doc.text(t,14,20);doc.setFontSize(10);doc.setTextColor(100);doc.text(d,14,28);let head=[],body=[];if(tipo==='productos'){head=[['SKU','Nombre','Cat.','Precio','Stock']];const res=await(await fetch('/api/productos')).json();body=res.map(p=>[p.sku,p.nombre,p.categoria,F(p.precio),p.stock.toString()]);}else if(tipo==='categorias'){head=[['Categoría','Total Prod.','Stock Total','Valor Inv.']];const res=await(await fetch('/api/informes/stock_categoria')).json();body=res.map(c=>[c.categoria,c.total_productos.toString(),Math.round(c.total_stock).toString(),F(c.valor_inventario)]);}else if(tipo==='clientes'){head=[['Nombre','RUT','Teléfono','Email','Deuda']];const res=await(await fetch('/api/clientes')).json();body=res.map(c=>[c.nombre,c.rut||'-',c.telefono||'-',c.email||'-',F(c.saldo_pendiente)]);}else if(tipo==='cierre_caja'){head=[['Hora','Total','Método Pago']];const res=await(await fetch('/api/ventas_hoy')).json();body=res.ventas.map(v=>[v.fecha,F(v.total),v.metodo_pago]);doc.autoTable({startY:35,head,body,theme:'grid',headStyles:{fillColor:[200,134,10]}});const fY=doc.lastAutoTable.finalY+10;doc.setFontSize(12);doc.setTextColor(0);doc.text(`TOTAL DEL DÍA: ${F(res.total)}`,14,fY);doc.setFontSize(10);doc.text(`Ventas: ${res.num_ventas}  |  Efectivo: ${F(res.por_metodo['Efectivo']||0)}  |  Débito: ${F(res.por_metodo['Debito']||0)}  |  Crédito: ${F(res.por_metodo['Credito']||0)}  |  Fiado: ${F(res.por_metodo['Fiado']||0)}`,14,fY+6);window.open(doc.output('bloburl'), '_blank');return;}
+doc.autoTable({startY:35,head,body,theme:'striped',headStyles:{fillColor:[21,101,192]}});window.open(doc.output('bloburl'), '_blank');toast('Mostrando PDF',false);}
 
 // CAJEROS
 let cajeros=[];
@@ -419,6 +422,11 @@ async function guardarConfig(){const d={nombre:document.getElementById('cfg-nom'
 
 loadConfig();
 loadDash();
+
+// REGISTRAR SERVICE WORKER PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(()=>{console.log('PWA Lista');});
+}
 </script>
 </body>
 </html>
