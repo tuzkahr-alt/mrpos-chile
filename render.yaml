@@ -3,7 +3,7 @@ services:
     name: mrpos-chile
     env: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn pos_app:app"
+    startCommand: "gunicorn pos_app:app --bind 0.0.0.0:$PORT"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
