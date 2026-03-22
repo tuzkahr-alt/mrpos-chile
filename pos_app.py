@@ -567,16 +567,28 @@ def super_get_negocios():
 
 @app.route('/api/super/negocios', methods=['POST'])
 def super_add_negocio():
-    d = request.json
-    n = Negocio(nombre=d['nombre'], admin_pin=d.get('pin', '1234'))
+    data = request.json
+    n = Negocio(nombre=data['nombre'], admin_pin=data['pin'])
     db.session.add(n)
+    db.session.flush() # Para obtener el n.id
+    
+    # Pre-configuración inicial para el nuevo usuario (Mejorado para Karen)
+    cats = ['General', 'Almacén', 'Bebidas', 'Limpieza', 'Varios']
+    for c_nom in cats:
+        db.session.add(Categoria(nombre=c_nom, negocio_id=n.id))
+    
+    # Producto de bienvenida
+    db.session.add(Producto(
+        sku="BIENVENIDA", 
+        nombre="Producto de Prueba (Ejemplo)", 
+        precio=1000, 
+        stock=100, 
+        categoria="General", 
+        negocio_id=n.id
+    ))
+    
     db.session.commit()
-    # Inicializar categorias para el nuevo negocio
-    nombres_cats = ['General', 'Bebidas', 'Abarrotes', 'Lácteos', 'Panadería', 'Fiambrería', 'Licores', 'Higiene', 'Limpieza', 'Farmacia']
-    for nc in nombres_cats:
-        db.session.add(Categoria(negocio_id=n.id, nombre=nc))
-    db.session.commit()
-    return jsonify({'ok': True, 'id': n.id})
+    return jsonify({'ok': True, 'negocio_id': n.id})
 
 # ── CONFIGURACION NEGOCIO ──
 @app.route('/api/configuracion', methods=['GET'])

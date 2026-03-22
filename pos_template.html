@@ -327,6 +327,19 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 <div class="ma"><button class="btn btn-o" onclick="cerrarM('m-neg')">Cancelar</button><button class="btn btn-b" onclick="guardarNegocio()"><i class="fas fa-save"></i> Crear Negocio</button></div>
 </div></div>
 
+<!-- MODAL BIENVENIDA (KAREN/NUEVOS) -->
+<div class="modal-bg" id="m-welcome"><div class="modal" style="text-align:center;max-width:450px">
+<div style="font-size:3rem;margin-bottom:15px">🚀</div>
+<h2 id="welcome-title">¡Bienvenida, Karen!</h2>
+<p style="color:var(--muted);margin-bottom:20px">Tu negocio ya está configurado y listo para crecer. Hemos preparado unas categorías básicas para ti.</p>
+<div style="text-align:left;background:rgba(255,255,255,0.05);padding:15px;border-radius:10px;margin-bottom:20px">
+<div style="margin-bottom:8px"><i class="fas fa-check-circle" style="color:var(--green)"></i> Registra tus productos en <b>Inventario</b></div>
+<div style="margin-bottom:8px"><i class="fas fa-check-circle" style="color:var(--green)"></i> Usa la <b>Terminal</b> para vender</div>
+<div style="margin-bottom:8px"><i class="fas fa-check-circle" style="color:var(--green)"></i> Mira tus ganancias en <b>Informes</b></div>
+</div>
+<button class="btn btn-b" style="width:100%" onclick="cerrarM('m-welcome')">¡Comenzar a Vender!</button>
+</div></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -491,10 +504,24 @@ async function guardarConfig(){const d={admin_pin:document.getElementById('cfg-p
 
 // LOGIN Y SEGURIDAD
 let sysRol=null,sysNom='';
-async function validarLogin(){const pin=document.getElementById('login-pin').value;if(!pin)return toast('Ingresa tu PIN',true);const r=await(await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})})).json();if(r.ok){sysRol=r.rol;sysNom=r.nombre;document.getElementById('login-screen').style.display='none';document.getElementById('sys-app').style.display='flex';toast('Bienvenido '+sysNom);if(sysRol==='cajero'){document.querySelectorAll('.nav-admin, .nav-inv').forEach(e=>e.style.display='none');document.getElementById('footer-brand').innerHTML+=`<br><b style="color:var(--gold-light)">Cajero: ${sysNom}</b>`;go('terminal',document.querySelectorAll('.nav-item')[1]);}else if(sysRol==='admin_local'){document.querySelectorAll('.nav-admin').forEach(e=>e.style.display='none');document.querySelectorAll('.nav-inv').forEach(e=>e.style.display='flex');document.getElementById('footer-brand').innerHTML+=`<br><b style="color:var(--blue-light)">Admin Local: ${sysNom}</b>`;go('terminal',document.querySelectorAll('.nav-item')[1]);}else{document.querySelectorAll('.nav-admin, .nav-inv').forEach(e=>e.style.display='flex');go('dashboard',document.querySelectorAll('.nav-item')[0]);}}else{toast(r.msg,true);document.getElementById('login-pin').value='';}}
+async function validarLogin(){const pin=document.getElementById('login-pin').value;if(!pin)return toast('Ingresa tu PIN',true);const r=await(await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})})).json();if(r.ok){localStorage.setItem('user_rol',r.rol);localStorage.setItem('user_nom',r.nombre);localStorage.setItem('nid',r.negocio_id||1);
+if(r.rol==='admin')localStorage.setItem('show_welcome','true');
+location.reload()}else{toast(r.msg,true)}}
+
+function applyPerms(){const r=localStorage.getItem('user_rol'),n=localStorage.getItem('user_nom');if(!r){document.getElementById('login-screen').style.display='flex';document.getElementById('sys-app').style.display='none';return}
+document.getElementById('login-screen').style.display='none';document.getElementById('sys-app').style.display='flex';
+document.getElementById('un').textContent=n;document.getElementById('ut').textContent=r==='super'?'MEGA DUEÑO':(r==='admin'?'DUEÑO LOCAL':'CAJERO');
+if(localStorage.getItem('show_welcome')==='true'){document.getElementById('welcome-title').textContent='¡Bienvenid@, '+n+'!';document.getElementById('m-welcome').classList.add('show');localStorage.removeItem('show_welcome')}
+if(r==='super'){document.querySelectorAll('.nav-super').forEach(e=>e.style.display='block');document.querySelectorAll('.nav-admin,.nav-inv').forEach(e=>e.style.display='block');go('dashboard',document.querySelectorAll('.nav-item')[0])}
+else if(r==='admin'){document.querySelectorAll('.nav-super').forEach(e=>e.style.display='none');document.querySelectorAll('.nav-admin,.nav-inv').forEach(e=>e.style.display='block');document.getElementById('footer-brand').innerHTML+=`<br><b style="color:var(--blue-light)">Admin Local: ${n}</b>`;go('dashboard',document.querySelectorAll('.nav-item')[0])}
+else if(r==='admin_local'){document.querySelectorAll('.nav-super').forEach(e=>e.style.display='none');document.querySelectorAll('.nav-admin').forEach(e=>e.style.display='none');document.querySelectorAll('.nav-inv').forEach(e=>e.style.display='flex');document.getElementById('footer-brand').innerHTML+=`<br><b style="color:var(--blue-light)">Admin Local: ${n}</b>`;go('terminal',document.querySelectorAll('.nav-item')[1])}
+else if(r==='cajero'){document.querySelectorAll('.nav-super,.nav-admin,.nav-inv').forEach(e=>e.style.display='none');document.getElementById('footer-brand').innerHTML+=`<br><b style="color:var(--gold-light)">Cajero: ${n}</b>`;go('terminal',document.querySelectorAll('.nav-item')[1])}
+}
+
 document.getElementById('login-pin').addEventListener('keypress',e=>{if(e.key==='Enter')validarLogin()});
 
 loadConfig();
+applyPerms();
 
 // REGISTRAR SERVICE WORKER PWA
 if ('serviceWorker' in navigator) {
