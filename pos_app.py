@@ -124,6 +124,11 @@ class Configuracion(db.Model):
     logo_url = db.Column(db.String(300), default='')
     admin_pin = db.Column(db.String(20), default='admin')
 
+class Categoria(db.Model):
+    __tablename__ = 'categorias'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(50), unique=True, nullable=False)
+
 # ══════════════════════════════════════════════════════════════
 # LÓGICA BALANZA DIGI SM-100
 # ══════════════════════════════════════════════════════════════
@@ -480,6 +485,31 @@ def eliminar_cajero(cid):
     db.session.commit()
     return jsonify({'ok': True})
 
+# ── CATEGORIAS ──
+@app.route('/api/categorias', methods=['GET'])
+def get_categorias():
+    cats = Categoria.query.all()
+    return jsonify([{'id': c.id, 'nombre': c.nombre} for c in cats])
+
+@app.route('/api/categorias', methods=['POST'])
+def add_categoria():
+    d = request.json
+    if not d.get('nombre'): return jsonify({'ok': False, 'msg': 'Nombre requerido'}), 400
+    if Categoria.query.filter_by(nombre=d['nombre']).first():
+        return jsonify({'ok': False, 'msg': 'Ya existe'}), 400
+    c = Categoria(nombre=d['nombre'])
+    db.session.add(c)
+    db.session.commit()
+    return jsonify({'ok': True, 'id': c.id})
+
+@app.route('/api/categorias/<int:cid>', methods=['DELETE'])
+def del_categoria(cid):
+    c = Categoria.query.get_or_404(cid)
+    # No permitir borrar si hay productos (opcional, por ahora solo borra)
+    db.session.delete(c)
+    db.session.commit()
+    return jsonify({'ok': True})
+
 # ── LOGIN Y AUTENTICACIÓN ──
 @app.route('/api/login', methods=['POST'])
 def api_login():
@@ -572,6 +602,13 @@ def seed_data():
         db.session.commit()
         
     if Producto.query.count() == 0:
+        # Asegurar categorias básicas
+        nombres_cats = ['General', 'Bebidas', 'Abarrotes', 'Lácteos', 'Panadería', 'Fiambrería', 'Licores', 'Higiene', 'Limpieza', 'Farmacia']
+        for nc in nombres_cats:
+            if not Categoria.query.filter_by(nombre=nc).first():
+                db.session.add(Categoria(nombre=nc))
+        db.session.commit()
+
         productos = [
             Producto(sku='00001', codigo_barra='7801234560012', nombre='Coca-Cola 1.5L', precio=1490, stock=50, categoria='Bebidas'),
             Producto(sku='00002', codigo_barra='7801234560029', nombre='Pan Hallulla (kg)', precio=1200, stock=30, es_pesable=True, categoria='Panadería'),

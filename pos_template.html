@@ -128,6 +128,7 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 <button class="nav-item" onclick="go('terminal',this)"><i class="fas fa-cash-register"></i>Terminal Venta</button>
 <button class="nav-item nav-inv" onclick="go('inventario',this)"><i class="fas fa-boxes-stacked"></i>Inventario</button>
 <button class="nav-item nav-admin" onclick="go('informes',this)"><i class="fas fa-chart-bar"></i>Informes</button>
+<button class="nav-item nav-admin" onclick="go('categorias',this)"><i class="fas fa-tags"></i>Categorías</button>
 <button class="nav-item" onclick="go('clientes',this)"><i class="fas fa-users"></i>Clientes</button>
 <button class="nav-item nav-admin" onclick="go('cajeros',this)"><i class="fas fa-user-tie"></i>Cajeros</button>
 <button class="nav-item nav-admin" onclick="go('config',this)"><i class="fas fa-store"></i>Mi Negocio</button>
@@ -146,8 +147,10 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 <div class="stats" id="ds"></div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
 <div><h3 style="font-weight:800;margin-bottom:10px"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i> Stock Bajo</h3><div class="tw"><table><thead><tr><th>Producto</th><th>Stock</th><th>Min</th></tr></thead><tbody id="da"></tbody></table></div></div>
-<div><h3 style="font-weight:800;margin-bottom:10px"><i class="fas fa-receipt" style="color:var(--blue-light)"></i> Ultimas Ventas</h3><div class="tw"><table><thead><tr><th>Hora</th><th>Total</th><th>Pago</th></tr></thead><tbody id="dv"></tbody></table></div></div>
-</div></div>
+<div><h3 style="font-weight:800;margin-bottom:10px"><i class="fas fa-tags" style="color:var(--blue-light)"></i> Resumen por Categoría</h3><div class="tw"><table><thead><tr><th>Categoría</th><th>Productos</th><th>V. Inventario</th></tr></thead><tbody id="dc"></tbody></table></div></div>
+</div>
+<div style="margin-top:14px"><h3 style="font-weight:800;margin-bottom:10px"><i class="fas fa-receipt" style="color:var(--blue-light)"></i> Ultimas Ventas</h3><div class="tw"><table><thead><tr><th>Hora</th><th>Total</th><th>Pago</th></tr></thead><tbody id="dv"></tbody></table></div></div>
+</div>
 
 <!-- TERMINAL -->
 <div class="page" id="p-terminal">
@@ -217,10 +220,10 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 <div class="cierre-card"><h3><i class="fas fa-list" style="color:var(--gold-light)"></i> Ventas</h3><div class="tw"><table><thead><tr><th>#</th><th>Hora</th><th>Total</th><th>Metodo</th></tr></thead><tbody id="cv"></tbody></table></div></div>
 </div>
 
-<!-- CAJEROS -->
-<div class="page" id="p-cajeros">
-<div class="topbar"><h1><i class="fas fa-user-tie"></i> Perfil de Cajeros</h1><button class="btn btn-b" onclick="abrirMCajero()"><i class="fas fa-plus"></i> Nuevo Cajero</button></div>
-<div id="cj-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px"></div>
+<!-- CATEGORIAS -->
+<div class="page" id="p-categorias">
+<div class="topbar"><h1><i class="fas fa-tags"></i> Gestión de Categorías</h1><button class="btn btn-b" onclick="abrirMCat()"><i class="fas fa-plus"></i> Nueva Categoría</button></div>
+<div id="cats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
 </div>
 
 <!-- CONFIGURACION -->
@@ -252,7 +255,7 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 <div class="modal-bg" id="m-prod"><div class="modal">
 <h2><i class="fas fa-box"></i> <span id="mp-t">Nuevo Producto</span></h2>
 <input type="hidden" id="mp-id"><label>SKU</label><input id="mp-sku"><label>Codigo Barra</label><input id="mp-cb"><label>Nombre</label><input id="mp-nom">
-<label>Categoria</label><select id="mp-cat"><option>General</option><option>Bebidas</option><option>Abarrotes</option><option>Lacteos</option><option>Panaderia</option><option>Fiambreria</option><option>Licores</option><option>Higiene</option><option>Limpieza</option><option>Farmacia</option></select>
+<label>Categoria</label><select id="mp-cat"></select>
 <label>Precio ($)</label><input type="number" id="mp-pre"><label>Stock (Unidades o Kilos)</label><input type="number" id="mp-stk" step="0.1"><label>Stock Minimo</label><input type="number" id="mp-min" value="5">
 <label style="display:block;margin-top:10px;font-size:0.8rem;color:var(--muted)">Tipo de Venta</label>
 <select id="mp-pes" style="margin-bottom:15px;width:100%"><option value="false">Por Unidad / Unitario</option><option value="true">Por Kilo / Granel (Pesable)</option></select>
@@ -303,6 +306,13 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 <div class="ma"><button class="btn btn-o" onclick="cerrarM('m-caj')">Cancelar</button><button class="btn btn-b" onclick="guardarCajero()"><i class="fas fa-save"></i> Guardar</button></div>
 </div></div>
 
+<!-- MODAL CATEGORIA -->
+<div class="modal-bg" id="m-cat"><div class="modal">
+<h2><i class="fas fa-tag"></i> Nueva Categoría</h2>
+<label>Nombre de la Categoría</label><input id="mct-nom" placeholder="Ej: Congelados">
+<div class="ma"><button class="btn btn-o" onclick="cerrarM('m-cat')">Cancelar</button><button class="btn btn-b" onclick="guardarCat()"><i class="fas fa-save"></i> Guardar</button></div>
+</div></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -311,19 +321,20 @@ const F=n=>'$'+new Intl.NumberFormat('es-CL').format(Math.round(n));
 function ck(){const d=new Date(),s=d.toLocaleDateString('es-CL',{weekday:'short',day:'numeric',month:'short'})+' '+d.toLocaleTimeString('es-CL');document.querySelectorAll('#ck,#ck2').forEach(e=>e.textContent=s)}
 setInterval(ck,1000);ck();
 function go(id,b){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('p-'+id).classList.add('active');document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');document.querySelector('.sidebar').classList.remove('open');
-if(id==='dashboard')loadDash();if(id==='terminal')loadProds();if(id==='inventario')loadInv();if(id==='informes')loadInf();if(id==='clientes')loadCli();if(id==='cierre')loadCierre();if(id==='cajeros')loadCajeros();if(id==='config')loadConfig()}
+if(id==='dashboard')loadDash();if(id==='terminal')loadProds();if(id==='inventario')loadInv();if(id==='informes')loadInf();if(id==='clientes')loadCli();if(id==='cierre')loadCierre();if(id==='cajeros')loadCajeros();if(id==='config')loadConfig();if(id==='categorias')loadCats()}
 function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast'+(e?' error':'')+' show';setTimeout(()=>t.classList.remove('show'),3000)}
 function cerrarM(id){document.getElementById(id).classList.remove('show')}
 
 // DASHBOARD
-async function loadDash(){const r=await(await fetch('/api/dashboard')).json();
+async function loadDash(){const r=await(await fetch('/api/dashboard')).json();const sc=await(await fetch('/api/informes/stock_categoria')).json();
 document.getElementById('ds').innerHTML=`<div class="sc"><div class="lb">Ventas Hoy</div><div class="vl">${r.ventas_hoy}</div><div class="ic"><i class="fas fa-shopping-bag"></i></div></div><div class="sc"><div class="lb">Total Hoy</div><div class="vl">${F(r.total_hoy)}</div><div class="ic"><i class="fas fa-dollar-sign"></i></div></div><div class="sc"><div class="lb">Productos</div><div class="vl">${r.total_productos}</div><div class="ic"><i class="fas fa-boxes-stacked"></i></div></div><div class="sc ${r.bajo_stock.length?'alert':''}"><div class="lb">Alertas</div><div class="vl">${r.bajo_stock.length}</div><div class="ic"><i class="fas fa-exclamation-triangle"></i></div></div>`;
 document.getElementById('da').innerHTML=r.bajo_stock.map(p=>`<tr><td style="color:var(--text)">${p.nombre}</td><td><span class="badge br">${p.stock}</span></td><td>${p.stock_minimo}</td></tr>`).join('')||'<tr><td colspan="3" style="text-align:center;padding:16px">Sin alertas</td></tr>';
+document.getElementById('dc').innerHTML=sc.slice(0,5).map(c=>`<tr><td><span class="badge bb">${c.categoria}</span></td><td>${c.total_productos}</td><td style="color:var(--gold-light);font-weight:700">${F(c.valor_inventario)}</td></tr>`).join('')||'<tr><td colspan="3" style="text-align:center;padding:16px">Sin datos</td></tr>';
 document.getElementById('dv').innerHTML=r.ultimas_ventas.map(v=>`<tr><td>${v.hora}</td><td style="color:var(--gold-light);font-weight:700">${F(v.total)}</td><td><span class="badge bb">${v.metodo_pago}</span></td></tr>`).join('')||'<tr><td colspan="3" style="text-align:center;padding:16px">Sin ventas</td></tr>'}
 
 // TERMINAL
-async function loadProds(){prods=await(await fetch('/api/productos')).json();clientes=await(await fetch('/api/clientes')).json();
-const cs=[...new Set(prods.map(p=>p.categoria))];['fc','ic'].forEach(id=>{const s=document.getElementById(id);const v=s.value;s.innerHTML='<option value="">Todas</option>'+cs.map(c=>`<option>${c}</option>`).join('');s.value=v});
+async function loadProds(){prods=await(await fetch('/api/productos')).json();clientes=await(await fetch('/api/clientes')).json(); const cats=await(await fetch('/api/categorias')).json();
+['fc','ic','mp-cat'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML=(id==='mp-cat'?'':'<option value="">Todas</option>')+cats.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');if(v)s.value=v});
 document.getElementById('fiado-cliente').innerHTML='<option value="">Seleccionar cliente...</option>'+clientes.map(c=>`<option value="${c.id}">${c.nombre} (${c.rut||'Sin RUT'})</option>`).join('');
 rp()}
 function rp(){const q=document.getElementById('fp').value.toLowerCase(),c=document.getElementById('fc').value;const f=prods.filter(p=>(p.nombre.toLowerCase().includes(q)||p.sku.includes(q))&&(!c||p.categoria===c));
@@ -427,6 +438,17 @@ function abrirMCajero(){document.getElementById('mcj-nom').value='';document.get
 async function guardarCajero(){const d={nombre:document.getElementById('mcj-nom').value,rut:document.getElementById('mcj-rut').value,turno:document.getElementById('mcj-tur').value,pin:document.getElementById('mcj-pin').value,rol:document.getElementById('mcj-rol').value};
 if(!d.nombre)return toast('Nombre requerido',true);await fetch('/api/cajeros',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});cerrarM('m-caj');toast('Guardado');loadCajeros()}
 async function delCajero(id){if(!confirm('Eliminar cajero?'))return;await fetch('/api/cajeros/'+id,{method:'DELETE'});toast('Eliminado');loadCajeros()}
+
+// CATEGORIAS MANAGEMENT
+async function loadCats(){const r=await(await fetch('/api/categorias')).json();
+document.getElementById('cats-grid').innerHTML=r.map(c=>`
+<div class="cuenta-card" style="display:flex;justify-content:space-between;align-items:center;padding:12px">
+<div style="font-weight:800"><i class="fas fa-tag" style="color:var(--blue-light);margin-right:8px"></i>${c.nombre}</div>
+<button class="btn btn-sm btn-r" onclick="delCat(${c.id})"><i class="fas fa-trash"></i></button>
+</div>`).join('')||'<div style="text-align:center;padding:40px;color:var(--muted);grid-column:1/-1">Sin categorías</div>'}
+function abrirMCat(){document.getElementById('mct-nom').value='';document.getElementById('m-cat').classList.add('show')}
+async function guardarCat(){const n=document.getElementById('mct-nom').value;if(!n)return toast('Nombre requerido',true);await fetch('/api/categorias',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre:n})});cerrarM('m-cat');toast('Guardada');loadCats()}
+async function delCat(id){if(!confirm('Borrar categoría?'))return;await fetch('/api/categorias/'+id,{method:'DELETE'});toast('Eliminada');loadCats()}
 
 // CONFIGURACION
 window.configNegocio={};
