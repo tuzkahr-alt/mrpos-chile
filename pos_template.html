@@ -108,7 +108,7 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')"><i class="fas fa-bars"></i></button>
 <div class="app">
 <aside class="sidebar">
-<div class="logo"><span class="mr">MR</span><span class="pos">POS</span></div>
+<div class="logo" id="side-logo-text"><span class="mr">MR</span><span class="pos">POS</span></div>
 <nav>
 <button class="nav-item active" onclick="go('dashboard',this)"><i class="fas fa-chart-pie"></i>Dashboard</button>
 <button class="nav-item" onclick="go('terminal',this)"><i class="fas fa-cash-register"></i>Terminal Venta</button>
@@ -116,12 +116,13 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 <button class="nav-item" onclick="go('informes',this)"><i class="fas fa-chart-bar"></i>Informes</button>
 <button class="nav-item" onclick="go('clientes',this)"><i class="fas fa-users"></i>Clientes</button>
 <button class="nav-item" onclick="go('cajeros',this)"><i class="fas fa-user-tie"></i>Cajeros</button>
+<button class="nav-item" onclick="go('config',this)"><i class="fas fa-store"></i>Mi Negocio</button>
 <button class="nav-item" onclick="go('cierre',this)"><i class="fas fa-calculator"></i>Cierre Caja</button>
 <div style="margin-top:auto;padding-bottom:10px">
 <a href="https://wa.me/56993448786" target="_blank" class="nav-item" style="color:var(--gold-light);text-decoration:none"><i class="fas fa-headset"></i>Asistencia</a>
 </div>
 </nav>
-<div class="sidebar-footer"><i class="fas fa-circle" style="color:var(--green);font-size:.45rem"></i> Sistema Activo<br><small>MRPOS v2.0 Chile</small></div>
+<div class="sidebar-footer"><i class="fas fa-circle" style="color:var(--green);font-size:.45rem"></i> Sistema Activo<br><small id="footer-brand">MRPOS v2.0 Chile</small></div>
 </aside>
 <div class="main">
 
@@ -208,6 +209,23 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 <div id="cj-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px"></div>
 </div>
 
+<!-- CONFIGURACION -->
+<div class="page" id="p-config">
+<div class="topbar"><h1><i class="fas fa-store"></i> Mi Negocio</h1><button class="btn btn-b" onclick="guardarConfig()"><i class="fas fa-save"></i> Guardar</button></div>
+<div class="cierre-card" style="max-width:500px">
+    <h3><i class="fas fa-info-circle" style="color:var(--blue-light)"></i> Datos para Boleta/Ticket</h3>
+    <label style="display:block;margin-top:10px;font-size:0.8rem;color:var(--muted)">Nombre del Negocio</label>
+    <input type="text" id="cfg-nom" style="width:100%;background:var(--dark);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px;color:var(--text);font-family:'Outfit',sans-serif;margin-bottom:10px" placeholder="Ej: Botilleria Andrea">
+    <label style="display:block;font-size:0.8rem;color:var(--muted)">Teléfono / WhatsApp</label>
+    <input type="text" id="cfg-tel" style="width:100%;background:var(--dark);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px;color:var(--text);font-family:'Outfit',sans-serif;margin-bottom:10px" placeholder="+569...">
+    <label style="display:block;font-size:0.8rem;color:var(--muted)">Dirección</label>
+    <input type="text" id="cfg-dir" style="width:100%;background:var(--dark);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px;color:var(--text);font-family:'Outfit',sans-serif;margin-bottom:10px">
+    <label style="display:block;font-size:0.8rem;color:var(--muted)">RUT de la Empresa</label>
+    <input type="text" id="cfg-rut" style="width:100%;background:var(--dark);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px;color:var(--text);font-family:'Outfit',sans-serif;margin-bottom:10px">
+    <label style="display:block;font-size:0.8rem;color:var(--muted)">URL del Logo (Opcional)</label>
+    <input type="text" id="cfg-logo" style="width:100%;background:var(--dark);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px;color:var(--text);font-family:'Outfit',sans-serif;margin-bottom:10px" placeholder="https://ejemplo.com/logo.png">
+</div></div>
+
 </div></div>
 
 <!-- MODAL PRODUCTO -->
@@ -271,7 +289,7 @@ const F=n=>'$'+new Intl.NumberFormat('es-CL').format(Math.round(n));
 function ck(){const d=new Date(),s=d.toLocaleDateString('es-CL',{weekday:'short',day:'numeric',month:'short'})+' '+d.toLocaleTimeString('es-CL');document.querySelectorAll('#ck,#ck2').forEach(e=>e.textContent=s)}
 setInterval(ck,1000);ck();
 function go(id,b){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('p-'+id).classList.add('active');document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');document.querySelector('.sidebar').classList.remove('open');
-if(id==='dashboard')loadDash();if(id==='terminal')loadProds();if(id==='inventario')loadInv();if(id==='informes')loadInf();if(id==='clientes')loadCli();if(id==='cierre')loadCierre();if(id==='cajeros')loadCajeros()}
+if(id==='dashboard')loadDash();if(id==='terminal')loadProds();if(id==='inventario')loadInv();if(id==='informes')loadInf();if(id==='clientes')loadCli();if(id==='cierre')loadCierre();if(id==='cajeros')loadCajeros();if(id==='config')loadConfig()}
 function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast'+(e?' error':'')+' show';setTimeout(()=>t.classList.remove('show'),3000)}
 function cerrarM(id){document.getElementById(id).classList.remove('show')}
 
@@ -316,7 +334,8 @@ const cid=metodo==='Fiado'?parseInt(document.getElementById('fiado-cliente').val
 const items=cart.map(c=>({producto_id:c.id,cantidad:c.cantidad,precio_unitario:c.precio}));
 const r=await(await fetch('/api/ventas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items,metodo_pago:metodo,monto_pagado:mp,cliente_id:cid})})).json();
 if(r.ok){cerrarM('m-pago');
-let rb=`<div style="font-size:.85rem;color:var(--muted);margin-bottom:12px">Venta #${r.venta_id}</div>`;
+let rb=`<div style="text-align:center;margin-bottom:10px;border-bottom:1px dashed rgba(255,255,255,.2);padding-bottom:10px"><div style="font-weight:900;font-size:1.4rem;color:var(--text);line-height:1.2">${window.configNegocio?.nombre||'MRPOS'}</div><div style="font-size:0.8rem;color:var(--muted)">${window.configNegocio?.direccion||''}</div><div style="font-size:0.75rem;color:var(--muted)">RUT: ${window.configNegocio?.rut||''} | Tel: ${window.configNegocio?.telefono||''}</div></div>`;
+rb+=`<div style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-align:left">Venta #${r.venta_id} | ${new Date().toLocaleString('es-CL')}</div>`;
 r.detalles.forEach(d=>{rb+=`<div class="recibo-item"><span>${d.cantidad}x ${d.nombre}</span><span>${F(d.subtotal)}</span></div>`});
 rb+=`<div style="border-top:2px solid var(--gold-light);margin-top:10px;padding-top:10px;font-weight:900;font-size:1.3rem;color:var(--gold-light)">Total: ${F(r.total)}</div>`;
 rb+=`<div style="font-size:.85rem;color:var(--muted);margin-top:6px">Pago: ${r.metodo_pago}</div>`;
@@ -384,6 +403,15 @@ async function guardarCajero(){const d={nombre:document.getElementById('mcj-nom'
 if(!d.nombre)return toast('Nombre requerido',true);await fetch('/api/cajeros',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});cerrarM('m-caj');toast('Guardado');loadCajeros()}
 async function delCajero(id){if(!confirm('Eliminar cajero?'))return;await fetch('/api/cajeros/'+id,{method:'DELETE'});toast('Eliminado');loadCajeros()}
 
+// CONFIGURACION
+window.configNegocio={};
+async function loadConfig(){const r=await(await fetch('/api/configuracion')).json();if(r.nombre){window.configNegocio=r;
+const sd=document.getElementById('side-logo-text');if(sd){sd.innerHTML=r.logo_url?`<img src="${r.logo_url}" style="max-height:30px;border-radius:4px;margin-right:6px;object-fit:contain;background:#fff;padding:2px"><span style="color:var(--blue-light);font-size:1.1rem;white-space:nowrap">${r.nombre}</span>`:`<span class="mr" style="font-size:0.9rem">${r.nombre.substring(0,2).toUpperCase()}</span><span class="pos" style="font-size:1rem;margin-left:4px;white-space:nowrap">${r.nombre.substring(2)}</span>`;}
+if(document.getElementById('footer-brand'))document.getElementById('footer-brand').textContent=r.nombre;
+['nom','tel','dir','rut','logo'].forEach(k=>{const e=document.getElementById('cfg-'+k);if(e)e.value=r[k==='nom'?'nombre':k==='tel'?'telefono':k==='dir'?'direccion':k==='logo'?'logo_url':k]||'';});}}
+async function guardarConfig(){const d={nombre:document.getElementById('cfg-nom').value,telefono:document.getElementById('cfg-tel').value,direccion:document.getElementById('cfg-dir').value,rut:document.getElementById('cfg-rut').value,logo_url:document.getElementById('cfg-logo').value};if(!d.nombre)return toast('Nombre requerido',true);await fetch('/api/configuracion',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});toast('Guardado');loadConfig()}
+
+loadConfig();
 loadDash();
 </script>
 </body>

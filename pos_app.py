@@ -113,6 +113,15 @@ class Cajero(db.Model):
     turno = db.Column(db.String(50), default='Mañana')
     activo = db.Column(db.Boolean, default=True)
 
+class Configuracion(db.Model):
+    __tablename__ = 'configuracion'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), default='MRPOS Chile')
+    telefono = db.Column(db.String(50), default='')
+    direccion = db.Column(db.String(200), default='')
+    rut = db.Column(db.String(20), default='')
+    logo_url = db.Column(db.String(300), default='')
+
 # ══════════════════════════════════════════════════════════════
 # LÓGICA BALANZA DIGI SM-100
 # ══════════════════════════════════════════════════════════════
@@ -468,6 +477,25 @@ def eliminar_cajero(cid):
     db.session.commit()
     return jsonify({'ok': True})
 
+# ── CONFIGURACION NEGOCIO ──
+@app.route('/api/configuracion', methods=['GET'])
+def get_config():
+    c = Configuracion.query.first()
+    if not c: return jsonify({})
+    return jsonify({'nombre': c.nombre, 'telefono': c.telefono, 'direccion': c.direccion, 'rut': c.rut, 'logo_url': c.logo_url})
+
+@app.route('/api/configuracion', methods=['PUT'])
+def update_config():
+    c = Configuracion.query.first()
+    if not c:
+        c = Configuracion()
+        db.session.add(c)
+    d = request.json
+    for k in ['nombre', 'telefono', 'direccion', 'rut', 'logo_url']:
+        if k in d: setattr(c, k, d[k])
+    db.session.commit()
+    return jsonify({'ok': True})
+
 # ══════════════════════════════════════════════════════════════
 # TEMPLATE HTML (SPA) - se carga dinámicamente
 # ══════════════════════════════════════════════════════════════
@@ -487,6 +515,11 @@ def index():
 # ══════════════════════════════════════════════════════════════
 def seed_data():
     """Carga productos de ejemplo para Chile"""
+    if Configuracion.query.count() == 0:
+        conf = Configuracion(nombre='MRPOS Chile', telefono='+569 00000000')
+        db.session.add(conf)
+        db.session.commit()
+
     if Cajero.query.count() == 0:
         c1 = Cajero(nombre='Cajero Principal', rut='11.111.111-1', pin='1234', turno='Mañana')
         db.session.add(c1)
