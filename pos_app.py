@@ -121,6 +121,7 @@ class Configuracion(db.Model):
     direccion = db.Column(db.String(200), default='')
     rut = db.Column(db.String(20), default='')
     logo_url = db.Column(db.String(300), default='')
+    admin_pin = db.Column(db.String(20), default='admin')
 
 # ══════════════════════════════════════════════════════════════
 # LÓGICA BALANZA DIGI SM-100
@@ -477,12 +478,26 @@ def eliminar_cajero(cid):
     db.session.commit()
     return jsonify({'ok': True})
 
+# ── LOGIN Y AUTENTICACIÓN ──
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    d = request.json
+    pin = str(d.get('pin', '')).strip()
+    c = Configuracion.query.first()
+    admin_pin = c.admin_pin if c and getattr(c, 'admin_pin', None) else 'admin'
+    if pin == admin_pin:
+        return jsonify({'ok': True, 'rol': 'admin', 'nombre': 'Administrador General'})
+    cajero = Cajero.query.filter_by(pin=pin, activo=True).first()
+    if cajero:
+        return jsonify({'ok': True, 'rol': 'cajero', 'nombre': cajero.nombre})
+    return jsonify({'ok': False, 'msg': 'PIN de Acceso Incorrecto'})
+
 # ── CONFIGURACION NEGOCIO ──
 @app.route('/api/configuracion', methods=['GET'])
 def get_config():
     c = Configuracion.query.first()
     if not c: return jsonify({})
-    return jsonify({'nombre': c.nombre, 'telefono': c.telefono, 'direccion': c.direccion, 'rut': c.rut, 'logo_url': c.logo_url})
+    return jsonify({'nombre': c.nombre, 'telefono': c.telefono, 'direccion': c.direccion, 'rut': c.rut, 'logo_url': c.logo_url, 'admin_pin': getattr(c, 'admin_pin', 'admin')})
 
 @app.route('/api/configuracion', methods=['PUT'])
 def update_config():
@@ -491,7 +506,7 @@ def update_config():
         c = Configuracion()
         db.session.add(c)
     d = request.json
-    for k in ['nombre', 'telefono', 'direccion', 'rut', 'logo_url']:
+    for k in ['nombre', 'telefono', 'direccion', 'rut', 'logo_url', 'admin_pin']:
         if k in d: setattr(c, k, d[k])
     db.session.commit()
     return jsonify({'ok': True})
@@ -580,6 +595,13 @@ def seed_data():
 # ══════════════════════════════════════════════════════════════
 with app.app_context():
     db.create_all()
+    # Validar que exista la columna admin_pin sin romper (SQLite/PG compat)
+    try:
+        from sqlalchemy import text
+        db.session.execute(text("ALTER TABLE configuracion ADD COLUMN admin_pin VARCHAR(20) DEFAULT 'admin'"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     seed_data()
 
 if __name__ == '__main__':

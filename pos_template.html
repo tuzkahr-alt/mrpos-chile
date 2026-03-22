@@ -110,18 +110,27 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
 </style>
 </head>
 <body>
+<div id="login-screen" style="position:fixed;inset:0;background:var(--dark);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column">
+    <div style="background:var(--card);padding:40px;border-radius:20px;text-align:center;width:90%;max-width:380px;border:1px solid rgba(21,101,192,.2)">
+        <div style="margin-bottom:20px;font-size:2rem"><span style="color:#fff;background:var(--blue);padding:5px 12px;border-radius:8px;font-weight:900">MR</span><span style="color:var(--blue-light);font-weight:900">POS</span></div>
+        <h2 style="font-weight:800;margin-bottom:8px;color:var(--text)"><i class="fas fa-lock" style="color:var(--blue-light)"></i> Ingreso</h2>
+        <p style="color:var(--muted);font-size:.85rem;margin-bottom:24px">Ingresa tu PIN de Acceso</p>
+        <input type="password" id="login-pin" style="width:100%;background:var(--dark);border:1px solid var(--blue-light);border-radius:12px;padding:15px;font-size:1.8rem;text-align:center;color:#fff;margin-bottom:20px;letter-spacing:12px;font-family:'Outfit',sans-serif" placeholder="****" autofocus>
+        <button class="btn btn-b" style="width:100%;justify-content:center;font-size:1.1rem;padding:12px" onclick="validarLogin()"><i class="fas fa-sign-in-alt"></i> Entrar al Sistema</button>
+    </div>
+</div>
 <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')"><i class="fas fa-bars"></i></button>
-<div class="app">
+<div class="app" id="sys-app" style="display:none">
 <aside class="sidebar">
 <div class="logo" id="side-logo-text"><span class="mr">MR</span><span class="pos">POS</span></div>
 <nav>
-<button class="nav-item active" onclick="go('dashboard',this)"><i class="fas fa-chart-pie"></i>Dashboard</button>
+<button class="nav-item active nav-admin" onclick="go('dashboard',this)"><i class="fas fa-chart-pie"></i>Dashboard</button>
 <button class="nav-item" onclick="go('terminal',this)"><i class="fas fa-cash-register"></i>Terminal Venta</button>
-<button class="nav-item" onclick="go('inventario',this)"><i class="fas fa-boxes-stacked"></i>Inventario</button>
-<button class="nav-item" onclick="go('informes',this)"><i class="fas fa-chart-bar"></i>Informes</button>
+<button class="nav-item nav-admin" onclick="go('inventario',this)"><i class="fas fa-boxes-stacked"></i>Inventario</button>
+<button class="nav-item nav-admin" onclick="go('informes',this)"><i class="fas fa-chart-bar"></i>Informes</button>
 <button class="nav-item" onclick="go('clientes',this)"><i class="fas fa-users"></i>Clientes</button>
-<button class="nav-item" onclick="go('cajeros',this)"><i class="fas fa-user-tie"></i>Cajeros</button>
-<button class="nav-item" onclick="go('config',this)"><i class="fas fa-store"></i>Mi Negocio</button>
+<button class="nav-item nav-admin" onclick="go('cajeros',this)"><i class="fas fa-user-tie"></i>Cajeros</button>
+<button class="nav-item nav-admin" onclick="go('config',this)"><i class="fas fa-store"></i>Mi Negocio</button>
 <button class="nav-item" onclick="go('cierre',this)"><i class="fas fa-calculator"></i>Cierre Caja</button>
 <div style="margin-top:auto;padding-bottom:10px">
 <a href="https://wa.me/56993448786" target="_blank" class="nav-item" style="color:var(--gold-light);text-decoration:none"><i class="fas fa-headset"></i>Asistencia</a>
@@ -229,6 +238,12 @@ body{font-family:'Outfit',sans-serif;background:var(--dark);color:var(--text);ov
     <input type="text" id="cfg-rut" style="width:100%;background:var(--dark);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px;color:var(--text);font-family:'Outfit',sans-serif;margin-bottom:10px">
     <label style="display:block;font-size:0.8rem;color:var(--muted)">URL del Logo (Opcional)</label>
     <input type="text" id="cfg-logo" style="width:100%;background:var(--dark);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px;color:var(--text);font-family:'Outfit',sans-serif;margin-bottom:10px" placeholder="https://ejemplo.com/logo.png">
+    
+    <div style="margin-top:20px;padding-top:20px;border-top:1px dashed rgba(255,255,255,.1)">
+    <h3 style="margin-bottom:10px;color:var(--text)"><i class="fas fa-lock" style="color:var(--blue-light)"></i> Seguridad Local</h3>
+    <label style="display:block;font-size:0.8rem;color:var(--muted)">PIN de Administrador General (Para dueños)</label>
+    <input type="text" id="cfg-pin" style="width:100%;background:var(--dark);border:1px solid rgba(229,57,53,.4);border-radius:10px;padding:10px;color:var(--text);font-family:'Outfit',sans-serif;margin-bottom:10px" placeholder="admin">
+    </div>
 </div></div>
 
 </div></div>
@@ -417,11 +432,15 @@ window.configNegocio={};
 async function loadConfig(){const r=await(await fetch('/api/configuracion')).json();if(r.nombre){window.configNegocio=r;
 const sd=document.getElementById('side-logo-text');if(sd){sd.innerHTML=r.logo_url?`<img src="${r.logo_url}" style="max-height:30px;border-radius:4px;margin-right:6px;object-fit:contain;background:#fff;padding:2px"><span style="color:var(--blue-light);font-size:1.1rem;white-space:nowrap">${r.nombre}</span>`:`<span class="mr" style="font-size:0.9rem">${r.nombre.substring(0,2).toUpperCase()}</span><span class="pos" style="font-size:1rem;margin-left:4px;white-space:nowrap">${r.nombre.substring(2)}</span>`;}
 if(document.getElementById('footer-brand'))document.getElementById('footer-brand').textContent=r.nombre;
-['nom','tel','dir','rut','logo'].forEach(k=>{const e=document.getElementById('cfg-'+k);if(e)e.value=r[k==='nom'?'nombre':k==='tel'?'telefono':k==='dir'?'direccion':k==='logo'?'logo_url':k]||'';});}}
-async function guardarConfig(){const d={nombre:document.getElementById('cfg-nom').value,telefono:document.getElementById('cfg-tel').value,direccion:document.getElementById('cfg-dir').value,rut:document.getElementById('cfg-rut').value,logo_url:document.getElementById('cfg-logo').value};if(!d.nombre)return toast('Nombre requerido',true);await fetch('/api/configuracion',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});toast('Guardado');loadConfig()}
+['nom','tel','dir','rut','logo','pin'].forEach(k=>{const e=document.getElementById('cfg-'+k);if(e)e.value=r[k==='nom'?'nombre':k==='tel'?'telefono':k==='dir'?'direccion':k==='logo'?'logo_url':k==='pin'?'admin_pin':k]||(k==='pin'?'admin':'');});}}
+async function guardarConfig(){const d={admin_pin:document.getElementById('cfg-pin').value,nombre:document.getElementById('cfg-nom').value,telefono:document.getElementById('cfg-tel').value,direccion:document.getElementById('cfg-dir').value,rut:document.getElementById('cfg-rut').value,logo_url:document.getElementById('cfg-logo').value};if(!d.nombre||!d.admin_pin)return toast('Nombre y PIN requeridos',true);await fetch('/api/configuracion',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});toast('Guardado');loadConfig()}
+
+// LOGIN Y SEGURIDAD
+let sysRol=null,sysNom='';
+async function validarLogin(){const pin=document.getElementById('login-pin').value;if(!pin)return toast('Ingresa tu PIN',true);const r=await(await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})})).json();if(r.ok){sysRol=r.rol;sysNom=r.nombre;document.getElementById('login-screen').style.display='none';document.getElementById('sys-app').style.display='flex';toast('Bienvenido '+sysNom);if(sysRol==='cajero'){document.querySelectorAll('.nav-admin').forEach(e=>e.style.display='none');document.getElementById('footer-brand').innerHTML+=`<br><b style="color:var(--gold-light)">Cajero: ${sysNom}</b>`;go('terminal',document.querySelectorAll('.nav-item')[1]);}else{document.querySelectorAll('.nav-admin').forEach(e=>e.style.display='flex');go('dashboard',document.querySelectorAll('.nav-item')[0]);}}else{toast(r.msg,true);document.getElementById('login-pin').value='';}}
+document.getElementById('login-pin').addEventListener('keypress',e=>{if(e.key==='Enter')validarLogin()});
 
 loadConfig();
-loadDash();
 
 // REGISTRAR SERVICE WORKER PWA
 if ('serviceWorker' in navigator) {
