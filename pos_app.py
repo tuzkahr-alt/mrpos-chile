@@ -688,16 +688,25 @@ def seed_data():
 # ══════════════════════════════════════════════════════════════
 with app.app_context():
     db.create_all()
-    # Validar que exista la columna admin_pin sin romper (SQLite/PG compat)
+    
+    # Migración automática manual para SQLite/Postgres
+    tablas = ['productos', 'ventas', 'clientes', 'movimiento_cuenta', 'cajero', 'categorias', 'cierre_caja']
+    from sqlalchemy import text
+    for t in tablas:
+        try:
+            db.session.execute(text(f"ALTER TABLE {t} ADD COLUMN negocio_id INTEGER DEFAULT 1"))
+            db.session.commit()
+            print(f"[MIGRACION] Columna negocio_id añadida a {t}")
+        except Exception:
+            db.session.rollback()
+
     try:
-        from sqlalchemy import text
-        db.session.execute(text("ALTER TABLE configuracion ADD COLUMN admin_pin VARCHAR(20) DEFAULT 'admin'"))
+        db.session.execute(text("ALTER TABLE negocios ADD COLUMN admin_pin VARCHAR(20) DEFAULT '1234'"))
         db.session.commit()
     except Exception:
         db.session.rollback()
-    
+        
     try:
-        from sqlalchemy import text
         db.session.execute(text("ALTER TABLE cajero ADD COLUMN rol VARCHAR(20) DEFAULT 'cajero'"))
         db.session.commit()
     except Exception:
