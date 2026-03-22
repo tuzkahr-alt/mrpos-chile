@@ -20,7 +20,13 @@ from flask_sqlalchemy import SQLAlchemy
 # ══════════════════════════════════════════════════════════════
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "pos_system.db")}'
+
+# Usar PostgreSQL persistente si existe la variable DATABASE_URL (Render), de lo contrario usa SQLite Local
+database_url = os.environ.get('DATABASE_URL', f'sqlite:///{os.path.join(BASE_DIR, "pos_system.db")}')
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JSON_AS_ASCII'] = False
 db = SQLAlchemy(app)
