@@ -52,19 +52,49 @@ class Producto(db.Model):
     sku = db.Column(db.String(20), nullable=False)
     codigo_barra = db.Column(db.String(20), default='')
     nombre = db.Column(db.String(100), nullable=False)
-    precio = db.Column(db.Float, nullable=False, default=0)
+    # Precios
+    precio = db.Column(db.Float, nullable=False, default=0)        # Precio venta c/IVA
+    precio_costo = db.Column(db.Float, default=0)                  # Costo neto
+    precio_oferta = db.Column(db.Float, default=0)                 # Precio unitario en oferta
+    oferta_desde = db.Column(db.Integer, default=0)                # Cant. mínima para oferta (0=no)
+    precio_pack = db.Column(db.Float, default=0)                   # Precio del pack
+    cantidad_pack = db.Column(db.Integer, default=0)               # Unidades que trae el pack (0=no)
+    # Stock
     stock = db.Column(db.Float, nullable=False, default=0)
+    stock_minimo = db.Column(db.Float, default=5)                  # Stock crítico
+    # Clasificación
+    tipo_producto = db.Column(db.String(20), default='normal')     # normal | pesable | unidad
     es_pesable = db.Column(db.Boolean, default=False)
     categoria = db.Column(db.String(50), default='General')
-    stock_minimo = db.Column(db.Float, default=5)
     activo = db.Column(db.Boolean, default=True)
+    imagen_url = db.Column(db.String(300), default='')
     creado = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Promocion(db.Model):
+    __tablename__ = 'promociones'
+    id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False, default=1)
+    nombre = db.Column(db.String(100), nullable=False)
+    precio_promo = db.Column(db.Float, nullable=False)
+    activo = db.Column(db.Boolean, default=True)
+    productos = db.relationship('PromoProducto', backref='promo', lazy=True)
+
+class PromoProducto(db.Model):
+    __tablename__ = 'promo_producto'
+    id = db.Column(db.Integer, primary_key=True)
+    promo_id = db.Column(db.Integer, db.ForeignKey('promociones.id'), nullable=False)
+    producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'), nullable=False)
+    cantidad = db.Column(db.Integer, default=1)
+
 
 class Venta(db.Model):
     __tablename__ = 'ventas'
     id = db.Column(db.Integer, primary_key=True)
     negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False, default=1)
+    cajero_id = db.Column(db.Integer, db.ForeignKey('cajero.id'), nullable=True)
     fecha = db.Column(db.DateTime, default=datetime.utcnow)
+    subtotal = db.Column(db.Float, default=0)
+    descuento = db.Column(db.Float, default=0)
     total = db.Column(db.Float, nullable=False)
     metodo_pago = db.Column(db.String(20), default='Efectivo')
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=True)
@@ -79,6 +109,7 @@ class DetalleVenta(db.Model):
     producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'), nullable=False)
     cantidad = db.Column(db.Float, nullable=False)
     precio_unitario = db.Column(db.Float, nullable=False)
+    descuento = db.Column(db.Float, default=0)
     subtotal = db.Column(db.Float, nullable=False)
 
 class CierreCaja(db.Model):
@@ -127,6 +158,43 @@ class Cajero(db.Model):
     turno = db.Column(db.String(50), default='Mañana')
     activo = db.Column(db.Boolean, default=True)
     rol = db.Column(db.String(20), default='cajero')
+
+class Historial(db.Model):
+    __tablename__ = 'historial'
+    id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False, default=1)
+    usuario_id = db.Column(db.Integer, nullable=True)
+    usuario_nombre = db.Column(db.String(100), default='Admin')
+    accion = db.Column(db.String(50)) # CREAR, EDITAR, ELIMINAR, STOCK, LOGIN
+    modulo = db.Column(db.String(50)) # PRODUCTOS, VENTAS, CAJA, etc
+    descripcion = db.Column(db.Text)
+    fecha = db.Column(db.DateTime, default=datetime.utcnow)
+
+def registrar_log(nid, uid, unom, accion, modulo, desc):
+    try:
+        log = Historial(negocio_id=nid, usuario_id=uid, usuario_nombre=unom, accion=accion, modulo=modulo, descripcion=desc)
+        db.session.add(log)
+        db.session.commit()
+    except Exception as e:
+        print(f"Error registrando log: {e}")
+
+class Proveedor(db.Model):
+    __tablename__ = 'proveedores'
+    id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False, default=1)
+    nombre = db.Column(db.String(100), nullable=False)
+    rut = db.Column(db.String(20), default='')
+    telefono = db.Column(db.String(20), default='')
+    activo = db.Column(db.Boolean, default=True)
+
+class FacturaCompra(db.Model):
+    __tablename__ = 'factura_compra'
+    id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False, default=1)
+    proveedor_id = db.Column(db.Integer, db.ForeignKey('proveedores.id'), nullable=False)
+    numero_factura = db.Column(db.String(50), nullable=False)
+    fecha = db.Column(db.DateTime, default=datetime.utcnow)
+    monto_total = db.Column(db.Float, nullable=False)
 
 class Categoria(db.Model):
     __tablename__ = 'categorias'
@@ -181,38 +249,195 @@ def get_productos():
     productos = Producto.query.filter_by(negocio_id=nid, activo=True).all()
     return jsonify([{
         'id': p.id, 'sku': p.sku, 'codigo_barra': p.codigo_barra,
-        'nombre': p.nombre, 'precio': p.precio, 'stock': p.stock,
-        'es_pesable': p.es_pesable, 'categoria': p.categoria,
-        'stock_minimo': p.stock_minimo
+        'nombre': p.nombre, 'precio': p.precio, 'precio_costo': getattr(p, 'precio_costo', 0),
+        'stock': p.stock, 'stock_minimo': p.stock_minimo,
+        'tipo_producto': getattr(p, 'tipo_producto', 'normal'), 'es_pesable': p.es_pesable,
+        'categoria': p.categoria, 'imagen_url': p.imagen_url,
+        'precio_oferta': getattr(p, 'precio_oferta', 0), 'oferta_desde': getattr(p, 'oferta_desde', 0),
+        'precio_pack': getattr(p, 'precio_pack', 0), 'cantidad_pack': getattr(p, 'cantidad_pack', 0),
+        'margen': round(((p.precio - getattr(p,'precio_costo',0)) / p.precio * 100), 1) if p.precio else 0
     } for p in productos])
 
 @app.route('/api/productos', methods=['POST'])
 def crear_producto():
     d = request.json
-    p = Producto(negocio_id=d.get('negocio_id', 1), sku=d['sku'], nombre=d['nombre'], 
-                 precio=float(d['precio']), stock=float(d.get('stock', 0)), 
-                 es_pesable=d.get('es_pesable', False), codigo_barra=d.get('codigo_barra', ''), 
-                 categoria=d.get('categoria', 'General'), stock_minimo=float(d.get('stock_minimo', 5)))
+    tipo = d.get('tipo_producto', 'normal')
+    p = Producto(
+        negocio_id=d.get('negocio_id', 1),
+        sku=d['sku'], nombre=d['nombre'],
+        precio=float(d.get('precio', 0)),
+        stock=float(d.get('stock', 0)),
+        stock_minimo=float(d.get('stock_minimo', 5)),
+        es_pesable=(tipo == 'pesable'),
+        codigo_barra=d.get('codigo_barra', ''),
+        categoria=d.get('categoria', 'General'),
+        imagen_url=d.get('imagen_url', '')
+    )
+    # Nuevos campos opcionales
+    for attr, val in [
+        ('precio_costo', float(d.get('precio_costo', 0))),
+        ('tipo_producto', tipo),
+        ('precio_oferta', float(d.get('precio_oferta', 0))),
+        ('oferta_desde', int(d.get('oferta_desde', 0))),
+        ('precio_pack', float(d.get('precio_pack', 0))),
+        ('cantidad_pack', int(d.get('cantidad_pack', 0))),
+    ]:
+        if hasattr(p, attr):
+            setattr(p, attr, val)
     db.session.add(p)
     db.session.commit()
+    registrar_log(p.negocio_id, d.get('usuario_id'), d.get('usuario_nombre', 'Admin'), 'CREAR', 'PRODUCTOS', f"Creó {p.nombre} ({p.sku})")
     return jsonify({'ok': True, 'id': p.id})
 
 @app.route('/api/productos/<int:pid>', methods=['PUT'])
 def editar_producto(pid):
     p = Producto.query.get_or_404(pid)
     d = request.json
-    for k in ['nombre', 'precio', 'stock', 'es_pesable', 'codigo_barra', 'categoria', 'stock_minimo', 'sku']:
-        if k in d:
-            setattr(p, k, float(d[k]) if k in ['precio','stock','stock_minimo'] else d[k])
+    floats = ['precio', 'precio_costo', 'stock', 'stock_minimo', 'precio_oferta', 'precio_pack']
+    ints   = ['oferta_desde', 'cantidad_pack']
+    strs   = ['nombre', 'codigo_barra', 'categoria', 'sku', 'imagen_url', 'tipo_producto']
+    for k in floats:
+        if k in d and hasattr(p, k): setattr(p, k, float(d[k]))
+    for k in ints:
+        if k in d and hasattr(p, k): setattr(p, k, int(d[k]))
+    for k in strs:
+        if k in d and hasattr(p, k): setattr(p, k, d[k])
+    if 'tipo_producto' in d:
+        p.es_pesable = (d['tipo_producto'] == 'pesable')
     db.session.commit()
+    registrar_log(p.negocio_id, d.get('usuario_id'), d.get('usuario_nombre', 'Admin'), 'EDITAR', 'PRODUCTOS', f"Modificó {p.nombre}")
     return jsonify({'ok': True})
 
 @app.route('/api/productos/<int:pid>', methods=['DELETE'])
 def eliminar_producto(pid):
     p = Producto.query.get_or_404(pid)
+    uid = request.args.get('uid')
+    unom = request.args.get('unom', 'Admin')
     p.activo = False
     db.session.commit()
+    registrar_log(p.negocio_id, uid, unom, 'ELIMINAR', 'PRODUCTOS', f"Eliminó {p.nombre}")
     return jsonify({'ok': True})
+
+@app.route('/api/historial', methods=['GET'])
+def get_historial():
+    nid = request.args.get('negocio_id', 1)
+    logs = Historial.query.filter_by(negocio_id=nid).order_by(Historial.fecha.desc()).limit(100).all()
+    return jsonify([{
+        'fecha': l.fecha.strftime('%Y-%m-%d %H:%M:%S'), 'usuario': l.usuario_nombre,
+        'accion': l.accion, 'modulo': l.modulo, 'desc': l.descripcion
+    } for l in logs])
+
+# ── IMPORTAR / EXPORTAR PRODUCTOS (CSV) ──
+@app.route('/api/productos/exportar', methods=['GET'])
+def exportar_productos():
+    nid = request.args.get('negocio_id', 1)
+    prods = Producto.query.filter_by(negocio_id=nid, activo=True).all()
+    
+    si = io.StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['sku', 'codigo_barra', 'nombre', 'categoria', 'precio', 'precio_costo', 'stock', 'stock_minimo', 'tipo_producto', 'precio_oferta', 'oferta_desde', 'precio_pack', 'cantidad_pack'])
+    for p in prods:
+        cw.writerow([p.sku, p.codigo_barra, p.nombre, p.categoria, p.precio, getattr(p,'precio_costo',0), p.stock, p.stock_minimo, getattr(p,'tipo_producto','normal'), getattr(p,'precio_oferta',0), getattr(p,'oferta_desde',0), getattr(p,'precio_pack',0), getattr(p,'cantidad_pack',0)])
+    
+    return Response(si.getvalue(), mimetype='text/csv', headers={"Content-disposition": f"attachment; filename=productos_negocio_{nid}.csv"})
+
+@app.route('/api/productos/importar', methods=['POST'])
+def importar_productos():
+    nid = request.json.get('negocio_id', 1)
+    uid = request.json.get('usuario_id')
+    unom = request.json.get('usuario_nombre', 'Admin')
+    csv_data = request.json.get('csv_text', '')
+    
+    if not csv_data: return jsonify({'ok': False, 'msg': 'Sin datos'})
+    
+    f = io.StringIO(csv_data)
+    reader = csv.DictReader(f)
+    cont = 0
+    for row in reader:
+        try:
+            # Buscar si ya existe por SKU
+            p = Producto.query.filter_by(negocio_id=nid, sku=row['sku']).first()
+            if not p:
+                p = Producto(negocio_id=nid, sku=row['sku'], nombre=row['nombre'], activo=True)
+                db.session.add(p)
+            
+            p.nombre = row.get('nombre', p.nombre)
+            p.codigo_barra = row.get('codigo_barra', p.codigo_barra)
+            p.categoria = row.get('categoria', p.categoria)
+            p.precio = float(row.get('precio', p.precio))
+            p.precio_costo = float(row.get('precio_costo', getattr(p, 'precio_costo', 0)))
+            p.stock = float(row.get('stock', p.stock))
+            p.stock_minimo = float(row.get('stock_minimo', p.stock_minimo))
+            p.tipo_producto = row.get('tipo_producto', getattr(p, 'tipo_producto', 'normal'))
+            p.es_pesable = (p.tipo_producto == 'pesable')
+            p.precio_oferta = float(row.get('precio_oferta', 0))
+            p.oferta_desde = int(row.get('oferta_desde', 0))
+            p.precio_pack = float(row.get('precio_pack', 0))
+            p.cantidad_pack = int(row.get('cantidad_pack', 0))
+            cont += 1
+        except Exception as e:
+            print(f"Error importando fila: {e}")
+            continue
+    
+    db.session.commit()
+    registrar_log(nid, uid, unom, 'IMPORTAR', 'PRODUCTOS', f"Importación masiva de {cont} productos vía CSV")
+    return jsonify({'ok': True, 'count': cont})
+
+@app.route('/api/backup', methods=['GET'])
+def full_backup():
+    nid = request.args.get('negocio_id', 1)
+    prods = Producto.query.filter_by(negocio_id=nid).all()
+    ventas = Venta.query.filter_by(negocio_id=nid).all()
+    cls = Cliente.query.filter_by(negocio_id=nid).all()
+    provs = Proveedor.query.filter_by(negocio_id=nid).all()
+    
+    backup = {
+        'negocio_id': nid,
+        'fecha': datetime.now().isoformat(),
+        'productos': [{'sku':p.sku, 'nombre':p.nombre, 'precio':p.precio, 'stock':p.stock} for p in prods],
+        'clientes': [{'nombre':c.nombre, 'rut':c.rut, 'saldo':c.saldo_pendiente} for c in cls],
+        'proveedores': [{'nombre':p.nombre, 'rut':p.rut} for p in provs],
+        'ventas': [{'id':v.id, 'total':v.total, 'fecha':v.fecha.isoformat()} for v in ventas]
+    }
+    
+    si = io.StringIO()
+    json.dump(backup, si, indent=2)
+    return Response(si.getvalue(), mimetype='application/json', headers={"Content-disposition": f"attachment; filename=backup_mrpos_{nid}.json"})
+
+# ── PROMOCIONES / COMBOS ──
+@app.route('/api/promociones', methods=['GET'])
+def get_promociones():
+    nid = request.args.get('negocio_id', 1)
+    promos = Promocion.query.filter_by(negocio_id=nid, activo=True).all()
+    result = []
+    for pr in promos:
+        items = []
+        for pp in pr.productos:
+            prod = Producto.query.get(pp.producto_id)
+            if prod:
+                items.append({'producto_id': prod.id, 'nombre': prod.nombre, 'cantidad': pp.cantidad})
+        result.append({'id': pr.id, 'nombre': pr.nombre, 'precio_promo': pr.precio_promo, 'productos': items})
+    return jsonify(result)
+
+@app.route('/api/promociones', methods=['POST'])
+def crear_promocion():
+    d = request.json
+    pr = Promocion(negocio_id=d.get('negocio_id', 1), nombre=d['nombre'], precio_promo=float(d['precio_promo']))
+    db.session.add(pr)
+    db.session.flush()
+    for item in d.get('productos', []):
+        pp = PromoProducto(promo_id=pr.id, producto_id=int(item['producto_id']), cantidad=int(item.get('cantidad', 1)))
+        db.session.add(pp)
+    db.session.commit()
+    return jsonify({'ok': True, 'id': pr.id})
+
+@app.route('/api/promociones/<int:prid>', methods=['DELETE'])
+def eliminar_promocion(prid):
+    pr = Promocion.query.get_or_404(prid)
+    pr.activo = False
+    db.session.commit()
+    return jsonify({'ok': True})
+
 
 # ── BUSCAR POR CÓDIGO (Barras / Balanza) ──
 @app.route('/api/buscar_codigo', methods=['POST'])
@@ -242,7 +467,7 @@ def buscar_codigo():
         return jsonify({
             'encontrado': True, 'es_balanza': False,
             'producto': {'id': prod.id, 'sku': prod.sku, 'nombre': prod.nombre,
-                         'precio': prod.precio, 'stock': prod.stock, 'es_pesable': prod.es_pesable}
+                         'precio': prod.precio, 'stock': prod.stock, 'es_pesable': prod.es_pesable, 'imagen_url': prod.imagen_url}
         })
     return jsonify({'encontrado': False, 'es_balanza': False})
 
@@ -255,40 +480,100 @@ def crear_venta():
     cliente_id = d.get('cliente_id', None)
     nid = d.get('negocio_id', 1)
     monto_pagado = float(d.get('monto_pagado', 0))
-    venta = Venta(negocio_id=nid, total=0, metodo_pago=metodo, 
-                  cliente_id=cliente_id, monto_pagado=monto_pagado)
+    venta_subtotal = float(d.get('subtotal', 0))
+    venta_descuento = float(d.get('descuento', 0))
+    venta_total = float(d.get('total', 0))
+    
+    # Si no vienen calculados del front, los calculamos aquí
+    if venta_total == 0:
+        venta_subtotal = 0
+        for item in items:
+            p_u = float(item.get('precio_unitario', 0))
+            cant = float(item.get('cantidad', 0))
+            desc = float(item.get('descuento', 0))
+            venta_subtotal += (p_u * cant) - desc
+        venta_total = venta_subtotal - venta_descuento
+
+    venta = Venta(negocio_id=nid, total=venta_total, subtotal=venta_subtotal, 
+                  descuento=venta_descuento, metodo_pago=metodo, 
+                  cliente_id=cliente_id, cajero_id=d.get('cajero_id'), 
+                  monto_pagado=monto_pagado)
     db.session.add(venta)
     db.session.flush()
+    
     detalles_resp = []
+    total_acumulado = 0
     for item in items:
         prod = Producto.query.get(item['producto_id'])
-        if not prod:
-            continue
+        if not prod: continue
         cant = float(item['cantidad'])
         precio_u = float(item.get('precio_unitario', prod.precio))
-        sub = round(cant * precio_u, 0)
+        desc_item = float(item.get('descuento', 0))
+        sub = round((cant * precio_u) - desc_item, 0)
         det = DetalleVenta(venta_id=venta.id, producto_id=prod.id,
-                           cantidad=cant, precio_unitario=precio_u, subtotal=sub)
+                           cantidad=cant, precio_unitario=precio_u, 
+                           descuento=desc_item, subtotal=sub)
         db.session.add(det)
         prod.stock = max(0, prod.stock - cant)
-        total += sub
+        total_acumulado += sub
         detalles_resp.append({'nombre': prod.nombre, 'cantidad': cant,
-                              'precio_unitario': precio_u, 'subtotal': sub})
-    venta.total = total
-    vuelto = max(0, monto_pagado - total) if metodo == 'Efectivo' else 0
+                              'precio_unitario': precio_u, 'descuento': desc_item, 'subtotal': sub})
+    
+    # Ajuste final de total si fue calculado dinámicamente
+    if venta_total == 0:
+        venta.total = total_acumulado
+        venta.subtotal = total_acumulado
+    
+    vuelto = max(0, monto_pagado - venta.total) if metodo == 'Efectivo' else 0
     venta.vuelto = vuelto
     # Si es Fiado, registrar en cuenta del cliente
     if metodo == 'Fiado' and cliente_id:
         cli = Cliente.query.get(cliente_id)
         if cli:
-            cli.saldo_pendiente += total
+            cli.saldo_pendiente += venta.total
             mov = MovimientoCuenta(negocio_id=nid, cliente_id=cli.id, tipo='cargo', 
-                                   monto=total, descripcion=f'Venta #{venta.id}', venta_id=venta.id)
+                                   monto=venta.total, descripcion=f'Venta #{venta.id}', venta_id=venta.id)
             db.session.add(mov)
     db.session.commit()
-    return jsonify({'ok': True, 'venta_id': venta.id, 'total': total,
+    
+    dte_tipo = str(d.get('dte_tipo', '0'))
+    dte_url = None
+    if dte_tipo in ['39', '33']:
+        # SIMULACIÓN DTE (Boleta o Factura)
+        # Aquí iría el POST a OpenFactura o SimpleDTE
+        dte_url = f"/api/boleta_dummy/{venta.id}"
+
+    registrar_log(nid, d.get('cajero_id'), d.get('nombre_cajero', 'Sistema'), 'VENTA', 'VENTAS', f"Venta #{venta.id} por {venta.total} ({metodo})")
+    
+    return jsonify({'ok': True, 'venta_id': venta.id, 'total': venta.total,
                     'vuelto': vuelto, 'metodo_pago': metodo,
-                    'monto_pagado': monto_pagado, 'detalles': detalles_resp})
+                    'monto_pagado': monto_pagado, 'detalles': detalles_resp, 
+                    'dte_url': dte_url})
+
+@app.route('/api/boleta_dummy/<int:vid>', methods=['GET'])
+def boleta_dummy(vid):
+    v = Venta.query.get_or_404(vid)
+    html = f'''
+    <!DOCTYPE html>
+    <html lang="es">
+    <head><meta charset="UTF-8"><title>DTE Simulado</title></head>
+    <body style="width: 300px; margin: 0 auto; font-family: monospace; text-align: center; padding:20px; color:#000;">
+    <h2>MI NEGOCIO SPA</h2>
+    <p>RUT: 76.543.210-K<br>GIRO: COMERCIO AL POR MENOR</p>
+    <h3 style="border:2px solid #000; padding:5px;">BOLETA ELECTRÓNICA N° {vid * 1054}</h3>
+    <hr style="border-top:1px dashed #000;">
+    '''
+    for d in v.detalles:
+        prod_obj = Producto.query.get(d.producto_id)
+        prod_nombre = prod_obj.nombre if prod_obj else "Desconocido"
+        html += f"<div style='text-align: left; margin:0;'>{prod_nombre}</div>"
+        html += f"<div style='text-align: right; margin:0; margin-bottom:5px;'>{int(d.cantidad)} x ${int(d.precio_unitario)} = ${int(d.subtotal)}</div>"
+    
+    html += f"<hr style='border-top:1px dashed #000;'><h2>TOTAL: ${int(v.total)}</h2>"
+    html += "<p>TIMBRE ELECTRÓNICO SII<br>Resolución N° 80 del 2014<br>Verifique documento en sii.cl</p>"
+    html += """<br><br><button onclick="window.print()" style="padding:10px; width:100%; border-radius:5px; background:#1565C0; color:white; border:none; cursor:pointer;" class="no-print">Imprimir DTE</button>"""
+    html += """<style>@media print { .no-print { display: none; } }</style></body></html>"""
+    return html
 
 @app.route('/api/ventas/<int:vid>', methods=['GET'])
 def get_venta(vid):
@@ -348,12 +633,17 @@ def dashboard():
     total_hoy = sum(v.total for v in ventas_hoy_q)
     bajo_stock = Producto.query.filter(Producto.negocio_id == nid, Producto.stock <= Producto.stock_minimo, Producto.activo == True).all()
     total_productos = Producto.query.filter_by(negocio_id=nid, activo=True).count()
+    por_metodo = {}
+    for v in ventas_hoy_q:
+        por_metodo[v.metodo_pago] = por_metodo.get(v.metodo_pago, 0) + v.total
+        
     return jsonify({
         'ventas_hoy': len(ventas_hoy_q), 'total_hoy': total_hoy,
         'total_productos': total_productos,
         'bajo_stock': [{'id': p.id, 'nombre': p.nombre, 'stock': p.stock, 'stock_minimo': p.stock_minimo} for p in bajo_stock],
         'ultimas_ventas': [{'id': v.id, 'total': v.total, 'metodo_pago': v.metodo_pago,
-                            'hora': v.fecha.strftime('%H:%M')} for v in ventas_hoy_q[-10:]]
+                            'hora': v.fecha.strftime('%H:%M')} for v in ventas_hoy_q[-10:]],
+        'por_metodo': por_metodo
     })
 
 # ── PRODUCTOS BAJO STOCK ──
@@ -483,12 +773,61 @@ def descargar_csv(tipo):
     
     return Response(si.getvalue().encode('utf-8-sig'), mimetype="text/csv", headers={"Content-disposition": f"attachment; filename={tipo}.csv"})
 
+# ── PROVEEDORES Y FACTURAS ──
+@app.route('/api/proveedores', methods=['GET'])
+def get_proveedores():
+    nid = request.args.get('negocio_id', 1)
+    provs = Proveedor.query.filter_by(negocio_id=nid, activo=True).all()
+    return jsonify([{'id': p.id, 'nombre': p.nombre, 'rut': p.rut, 'telefono': p.telefono} for p in provs])
+
+@app.route('/api/proveedores', methods=['POST'])
+def add_proveedor():
+    d = request.json
+    p = Proveedor(negocio_id=d.get('negocio_id', 1), nombre=d['nombre'], rut=d.get('rut',''), telefono=d.get('telefono',''))
+    db.session.add(p)
+    db.session.commit()
+    return jsonify({'ok': True, 'id': p.id})
+
+@app.route('/api/facturas', methods=['GET'])
+def get_facturas():
+    nid = request.args.get('negocio_id', 1)
+    facts = FacturaCompra.query.filter_by(negocio_id=nid).order_by(FacturaCompra.fecha.desc()).all()
+    res = []
+    for f in facts:
+        prov = Proveedor.query.get(f.proveedor_id)
+        res.append({'id': f.id, 'numero_factura': f.numero_factura, 'fecha': f.fecha.strftime('%d/%m/%Y'), 'monto_total': f.monto_total, 'proveedor': prov.nombre if prov else 'Desconocido'})
+    return jsonify(res)
+
+@app.route('/api/facturas', methods=['POST'])
+def add_factura():
+    d = request.json
+    f = FacturaCompra(negocio_id=d.get('negocio_id', 1), proveedor_id=d['proveedor_id'], numero_factura=d['numero_factura'], monto_total=float(d['monto_total']))
+    db.session.add(f)
+    db.session.commit()
+    return jsonify({'ok': True, 'id': f.id})
+
 # ── CAJEROS ──
 @app.route('/api/cajeros', methods=['GET'])
 def get_cajeros():
     nid = request.args.get('negocio_id', 1)
     cajeros = Cajero.query.filter_by(negocio_id=nid, activo=True).all()
     return jsonify([{'id': c.id, 'nombre': c.nombre, 'rut': c.rut, 'turno': c.turno, 'rol': getattr(c, 'rol', 'cajero')} for c in cajeros])
+
+@app.route('/api/cajeros/<int:cid>', methods=['PUT'])
+def editar_cajero(cid):
+    c = Cajero.query.get_or_404(cid)
+    d = request.json
+    for k in ['nombre', 'rut', 'pin', 'turno', 'rol']:
+        if k in d: setattr(c, k, d[k])
+    db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/cajeros/<int:cid>/stats', methods=['GET'])
+def get_cajero_stats(cid):
+    ventas = Venta.query.filter_by(cajero_id=cid).all()
+    total = sum([v.total for v in ventas])
+    count = len(ventas)
+    return jsonify({'total_vendido': total, 'numero_ventas': count})
 
 @app.route('/api/cajeros', methods=['POST'])
 def add_cajero():
@@ -547,13 +886,15 @@ def api_login():
     # Buscar entre los administradores de negocios
     negocio = Negocio.query.filter_by(admin_pin=pin, activo=True).first()
     if negocio:
-        return jsonify({'ok': True, 'rol': 'admin', 'nombre': f'Dueño: {negocio.nombre}', 'negocio_id': negocio.id})
+        registrar_log(negocio.id, negocio.id, f"Dueño: {negocio.nombre}", 'LOGIN', 'SISTEMA', "Inicio de sesión como Administrador")
+        return jsonify({'ok': True, 'rol': 'admin', 'nombre': f'Dueño: {negocio.nombre}', 'negocio_id': negocio.id, 'id': negocio.id})
 
     # Buscar entre los cajeros
     cajero = Cajero.query.filter_by(pin=pin, activo=True).first()
     if cajero:
         rol = getattr(cajero, 'rol', 'cajero')
-        return jsonify({'ok': True, 'rol': rol, 'nombre': cajero.nombre, 'negocio_id': cajero.negocio_id})
+        registrar_log(cajero.negocio_id, cajero.id, cajero.nombre, 'LOGIN', 'SISTEMA', f"Inicio de sesión como {rol}")
+        return jsonify({'ok': True, 'rol': rol, 'nombre': cajero.nombre, 'negocio_id': cajero.negocio_id, 'id': cajero.id})
     
     return jsonify({'ok': False, 'msg': 'PIN de Acceso Incorrecto'})
 
@@ -612,7 +953,7 @@ def update_config():
 # ── PWA SUPPORT (APP ANDROID) ──
 @app.route('/api/manifest.json')
 def manifest():
-    c = Configuracion.query.first()
+    c = Negocio.query.first()
     nombre = c.nombre if (c and c.nombre) else 'MRPOS Chile'
     return jsonify({
         "name": nombre,
@@ -675,21 +1016,21 @@ def seed_data():
         db.session.commit()
 
         productos = [
-            Producto(sku='00001', codigo_barra='7801234560012', nombre='Coca-Cola 1.5L', precio=1490, stock=50, categoria='Bebidas'),
-            Producto(sku='00002', codigo_barra='7801234560029', nombre='Pan Hallulla (kg)', precio=1200, stock=30, es_pesable=True, categoria='Panadería'),
-            Producto(sku='00003', codigo_barra='7801234560036', nombre='Leche Entera 1L', precio=990, stock=40, categoria='Lácteos'),
-            Producto(sku='00004', codigo_barra='7801234560043', nombre='Arroz Tucapel 1kg', precio=1290, stock=25, categoria='Abarrotes'),
-            Producto(sku='00005', codigo_barra='7801234560050', nombre='Aceite Vegetal 1L', precio=1890, stock=20, categoria='Abarrotes'),
-            Producto(sku='00006', codigo_barra='7801234560067', nombre='Cerveza Cristal 1L', precio=1390, stock=60, categoria='Bebidas'),
-            Producto(sku='00007', codigo_barra='7801234560074', nombre='Pisco Control 1L', precio=7990, stock=15, categoria='Licores'),
-            Producto(sku='00008', codigo_barra='7801234560081', nombre='Vino Gato Negro 750ml', precio=2990, stock=20, categoria='Licores'),
-            Producto(sku='00009', codigo_barra='7801234560098', nombre='Queso Chanco (kg)', precio=8990, stock=10, es_pesable=True, categoria='Lácteos'),
-            Producto(sku='00010', codigo_barra='7801234560104', nombre='Jamón (kg)', precio=6990, stock=8, es_pesable=True, categoria='Fiambrería'),
-            Producto(sku='00011', codigo_barra='7801234560111', nombre='Azúcar 1kg', precio=890, stock=35, categoria='Abarrotes'),
-            Producto(sku='00012', codigo_barra='7801234560128', nombre='Fideos Luchetti 400g', precio=690, stock=45, categoria='Abarrotes'),
-            Producto(sku='00013', codigo_barra='7801234560135', nombre='Papel Higiénico Elite 4un', precio=2490, stock=30, categoria='Higiene'),
-            Producto(sku='00014', codigo_barra='7801234560142', nombre='Detergente Omo 800g', precio=3490, stock=18, categoria='Limpieza'),
-            Producto(sku='00015', codigo_barra='7801234560159', nombre='Paracetamol 500mg x20', precio=1990, stock=3, stock_minimo=5, categoria='Farmacia'),
+            Producto(sku='00001', codigo_barra='7801234560012', nombre='Coca-Cola 1.5L', precio=1490, stock=50, categoria='Bebidas', imagen_url='https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=200&h=200&fit=crop'),
+            Producto(sku='00002', codigo_barra='7801234560029', nombre='Pan Hallulla (kg)', precio=1200, stock=30, es_pesable=True, categoria='Panadería', imagen_url='https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&h=200&fit=crop'),
+            Producto(sku='00003', codigo_barra='7801234560036', nombre='Leche Entera 1L', precio=990, stock=40, categoria='Lácteos', imagen_url='https://images.unsplash.com/photo-1550583724-1255814234c3?w=200&h=200&fit=crop'),
+            Producto(sku='00004', codigo_barra='7801234560043', nombre='Arroz Tucapel 1kg', precio=1290, stock=25, categoria='Abarrotes', imagen_url='https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&h=200&fit=crop'),
+            Producto(sku='00005', codigo_barra='7801234560050', nombre='Aceite Vegetal 1L', precio=1890, stock=20, categoria='Abarrotes', imagen_url='https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200&h=200&fit=crop'),
+            Producto(sku='00006', codigo_barra='7801234560067', nombre='Cerveza Cristal 1L', precio=1390, stock=60, categoria='Bebidas', imagen_url='https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=200&h=200&fit=crop'),
+            Producto(sku='00007', codigo_barra='7801234560074', nombre='Pisco Control 1L', precio=7990, stock=15, categoria='Licores', imagen_url='https://images.unsplash.com/photo-1516600164263-c7b4565c369e?w=200&h=200&fit=crop'),
+            Producto(sku='00008', codigo_barra='7801234560081', nombre='Vino Gato Negro 750ml', precio=2990, stock=20, categoria='Licores', imagen_url='https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=200&h=200&fit=crop'),
+            Producto(sku='00009', codigo_barra='7801234560098', nombre='Queso Chanco (kg)', precio=8990, stock=10, es_pesable=True, categoria='Lácteos', imagen_url='https://images.unsplash.com/photo-1486297678162-ad2a19b0584d?w=200&h=200&fit=crop'),
+            Producto(sku='00010', codigo_barra='7801234560104', nombre='Jamón (kg)', precio=6990, stock=8, es_pesable=True, categoria='Fiambrería', imagen_url='https://images.unsplash.com/photo-1524438418349-12d4c0191305?w=200&h=200&fit=crop'),
+            Producto(sku='00011', codigo_barra='7801234560111', nombre='Azúcar 1kg', precio=890, stock=35, categoria='Abarrotes', imagen_url='https://images.unsplash.com/photo-1581441363689-1f5c7031c622?w=200&h=200&fit=crop'),
+            Producto(sku='00012', codigo_barra='7801234560128', nombre='Fideos Luchetti 400g', precio=690, stock=45, categoria='Abarrotes', imagen_url='https://images.unsplash.com/photo-1612966809572-775211a281fb?w=200&h=200&fit=crop'),
+            Producto(sku='00013', codigo_barra='7801234560135', nombre='Papel Higiénico Elite 4un', precio=2490, stock=30, categoria='Higiene', imagen_url='https://images.unsplash.com/photo-1584622781564-1d987f7333c1?w=200&h=200&fit=crop'),
+            Producto(sku='00014', codigo_barra='7801234560142', nombre='Detergente Omo 800g', precio=3490, stock=18, categoria='Limpieza', imagen_url='https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=200&h=200&fit=crop'),
+            Producto(sku='00015', codigo_barra='7801234560159', nombre='Paracetamol 500mg x20', precio=1990, stock=3, stock_minimo=5, categoria='Farmacia', imagen_url='https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=200&h=200&fit=crop'),
         ]
         db.session.add_all(productos)
         db.session.commit()
@@ -708,9 +1049,34 @@ with app.app_context():
         try:
             db.session.execute(text(f"ALTER TABLE {t} ADD COLUMN negocio_id INTEGER DEFAULT 1"))
             db.session.commit()
-            print(f"[MIGRACION] Columna negocio_id añadida a {t}")
         except Exception:
             db.session.rollback()
+            
+    try:
+        db.session.execute(text("ALTER TABLE productos ADD COLUMN imagen_url VARCHAR(300) DEFAULT ''"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    # Nuevas columnas para descuentos y subtotales
+    try:
+        db.session.execute(text("ALTER TABLE ventas ADD COLUMN subtotal FLOAT DEFAULT 0"))
+        db.session.execute(text("ALTER TABLE ventas ADD COLUMN descuento FLOAT DEFAULT 0"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    try:
+        db.session.execute(text("ALTER TABLE detalle_venta ADD COLUMN descuento FLOAT DEFAULT 0"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    try:
+        db.session.execute(text("ALTER TABLE ventas ADD COLUMN cajero_id INTEGER"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
     try:
         db.session.execute(text("ALTER TABLE negocios ADD COLUMN admin_pin VARCHAR(20) DEFAULT '1234'"))
@@ -723,7 +1089,30 @@ with app.app_context():
         db.session.commit()
     except Exception:
         db.session.rollback()
-        
+
+    # ── Nuevas columnas Producto (Maestro Completo) ──
+    nuevas_cols = [
+        ("productos", "precio_costo",   "FLOAT DEFAULT 0"),
+        ("productos", "tipo_producto",  "VARCHAR(20) DEFAULT 'normal'"),
+        ("productos", "precio_oferta",  "FLOAT DEFAULT 0"),
+        ("productos", "oferta_desde",   "INTEGER DEFAULT 0"),
+        ("productos", "precio_pack",    "FLOAT DEFAULT 0"),
+        ("productos", "cantidad_pack",  "INTEGER DEFAULT 0"),
+    ]
+    for tabla, col, tipo_col in nuevas_cols:
+        try:
+            db.session.execute(text(f"ALTER TABLE {tabla} ADD COLUMN {col} {tipo_col}"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+    # Asegurar creación de nuevas tablas (Historial, etc)
+    try:
+        db.create_all()
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
     seed_data()
 
 if __name__ == '__main__':
