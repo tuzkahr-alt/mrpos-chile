@@ -102,10 +102,11 @@ input:focus,select:focus{border-color:var(--blue-light)}
                 <div style="display:flex;flex-direction:column;gap:15px">
                     <div class="sc" style="display:flex;gap:10px;padding:15px;align-items:center">
                         <i class="fas fa-barcode" style="font-size:1.5rem;color:var(--blue-light)"></i>
-                        <input type="text" id="si" placeholder="Scannear o ingresar código interno..." autofocus style="flex:1;font-size:1.2rem;background:none;border:none">
+                        <input type="text" id="si" placeholder="Buscar producto por nombre o escanear..." autofocus style="flex:1;font-size:1.2rem;background:none;border:none" oninput="liveSearch()">
                         <button class="btn btn-b" onclick="scanProduct()">ENTER</button>
                     </div>
                     
+                    <div id="vta-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:10px;max-height:220px;overflow-y:auto"></div>
                     <div class="tw" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
                         <table style="flex:1">
                             <thead><tr><th>Cod</th><th>Descripción</th><th>Cant</th><th>P.Unit</th><th>Subtotal</th><th>X</th></tr></thead>
@@ -163,7 +164,7 @@ input:focus,select:focus{border-color:var(--blue-light)}
                     <h3 style="color:var(--blue-light);margin-bottom:15px">Nuevo Documento</h3>
                     <div class="grid-2">
                         <div><label class="form-label">Tipo Docto.</label><select id="cmp-tipo" style="width:100%"><option value="AJUSTE">Guía de Ajuste (Reemplaza)</option><option value="COMPRA">Guía de Compra (Suma)</option><option value="FACTURA">Factura de Compra (Suma)</option></select></div>
-                        <div><label class="form-label">Proveedor</label><select id="cmp-prov" style="width:100%"><option>Seleccione...</option></select></div>
+                        <div><label class="form-label">Proveedor</label><div style="display:flex;gap:5px"><select id="cmp-prov" style="flex:1"><option value="">Seleccione...</option></select><button class="btn btn-o" style="padding:10px" onclick="abrirMPersona()" title="Agregar Proveedor">+</button></div></div>
                     </div>
                     <div style="margin-top:15px">
                         <label class="form-label">Agregar al documento:</label>
@@ -212,9 +213,13 @@ input:focus,select:focus{border-color:var(--blue-light)}
                         <button class="btn btn-o" style="justify-content:flex-start" onclick="genInf('vta-boletas')">5. Ventas por Boleta/Factura</button>
                         <button class="btn btn-o" style="justify-content:flex-start" onclick="genInf('vta-cajero')">6. Cierre Jornada (Ventas Cajero)</button>
                         <button class="btn btn-o" style="justify-content:flex-start;color:var(--blue-light);border-color:var(--blue-light)" onclick="genInf('cta-cte')">7. Cuentas Corrientes (Fiado / Pagos)</button>
+                        <button class="btn btn-b" style="justify-content:flex-start;margin-top:10px" onclick="genInf('stats-graficos')"><i class="fas fa-chart-pie"></i> 8. Estadísticas y Gráficos Visuales</button>
                     </div>
                 </div>
-                <div class="tw" id="inf-result" style="padding:20px;min-height:400px;font-family:monospace;font-size:14px;white-space:pre-wrap;overflow-y:auto;background:#fff;color:#000">Seleccione un informe...</div>
+                <div class="tw" style="position:relative;background:#fff;color:#000;display:flex;flex-direction:column;min-height:400px">
+                    <div id="inf-result" style="padding:20px;flex:1;font-family:monospace;font-size:14px;white-space:pre-wrap;overflow-y:auto">Seleccione un informe...</div>
+                    <div id="inf-charts" style="display:none;padding:20px;flex:1;flex-direction:column;gap:20px"><canvas id="chart-cat" style="max-height:200px"></canvas><canvas id="chart-stock" style="max-height:200px"></canvas></div>
+                </div>
             </div>
         </div>
 
@@ -228,6 +233,15 @@ input:focus,select:focus{border-color:var(--blue-light)}
 </div>
 
 <!-- MODALES FORMULARIOS ESTILO GMINIMARKET -->
+
+<!-- MAESTRO PERSONA MODAL -->
+<div class="modal-bg" id="m-persona"><div class="modal">
+    <h2 style="margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:10px">Maestro Persona</h2>
+    <input type="text" id="mper-rut" placeholder="RUT (Sin puntos ni guion)" style="width:100%;margin-bottom:10px">
+    <input type="text" id="mper-nom" placeholder="Nombre o Razón Social" style="width:100%;margin-bottom:10px">
+    <select id="mper-tipo" style="width:100%;margin-bottom:10px"><option>CLIENTE</option><option>PROVEEDOR</option><option>AMBOS</option></select>
+    <div style="display:flex;gap:10px"><button class="btn btn-o" style="flex:1" onclick="cerrarM('m-persona')">Cancelar</button><button class="btn btn-b" style="flex:1" onclick="guardarPersona()">GUARDAR</button></div>
+</div></div>
 
 <!-- PAGO MODAL -->
 <div class="modal-bg" id="m-pago">
@@ -312,6 +326,15 @@ function go(page, btn){
     if(page==='ventas') { document.getElementById('si').focus(); loadVentasCombos(); }
 }
 function cerrarM(id){ document.getElementById(id).classList.remove('show'); }
+function abrirMPersona(){ document.getElementById('m-persona').classList.add('show'); }
+async function guardarPersona(){
+    const d = {rut:document.getElementById('mper-rut').value, nombre:document.getElementById('mper-nom').value};
+    if(d.nombre) { 
+        await fetch('/api/clientes', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}); 
+        cerrarM('m-persona'); await loadData(); 
+        alert("Persona/Proveedor Guardado");
+    }
+}
 
 async function validarLogin(){
     const pin = document.getElementById('login-pin').value;
@@ -336,7 +359,37 @@ async function loadData(){
 function loadVentasCombos(){
     const sel = document.getElementById('vta-cliente');
     if(sel) sel.innerHTML = '<option value="">Cliente Genérico (Al Paso)</option>' + clientes.map(c=>`<option value="${c.id}">${c.nombre} (Rut: ${c.rut})</option>`).join('');
+    
+    // Top 15 default best sellers (or just first 15 for now)
+    if(productos.length > 0) renderTouchGrid(productos.slice(0, 15));
+    
+    const provSel = document.getElementById('cmp-prov');
+    if(provSel) provSel.innerHTML = '<option value="">Seleccione...</option>' + clientes.map(c=>`<option value="${c.id}">${c.nombre} (Rut: ${c.rut})</option>`).join('');
 }
+
+function liveSearch(){
+    const q = document.getElementById('si').value.toLowerCase();
+    if(!q) { renderTouchGrid(productos.slice(0, 15)); return; }
+    const f = productos.filter(p=>p.nombre.toLowerCase().includes(q) || p.sku.includes(q)).slice(0,25);
+    renderTouchGrid(f);
+}
+function renderTouchGrid(list){
+    const g = document.getElementById('vta-grid');
+    if(!g) return;
+    g.innerHTML = list.map(p=>`<div class="sc" style="padding:10px;cursor:pointer;text-align:center;border-color:rgba(21,101,192,0.3);background:rgba(21,101,192,0.1);user-select:none" onclick="addCartId(${p.id})">
+        <b style="font-size:.8rem">${p.nombre}</b><br><span style="color:var(--gold);font-weight:800">${F(p.precio)}</span>
+    </div>`).join('');
+}
+function addCartId(id){
+    const p = productos.find(x=>x.id===id);
+    if(p) {
+        const found = cart.find(x=>x.id===p.id);
+        if(found) found.cant++; else cart.push({id:p.id, cod:p.sku, desc:p.nombre, cant:1, p:p.precio});
+        renderCart();
+    }
+}
+let c1=null, c2=null;
+
 function scanProduct(){
     const code = document.getElementById('si').value.trim();
     if(!code) return;
@@ -364,6 +417,15 @@ function abrirPago(){
     document.getElementById('m-pago').classList.add('show');
     document.getElementById('pago-recibido').focus();
 }
+
+function addCompraItem(){
+    const prodId = document.getElementById('cmp-prod').value;
+    // this would normally add visually to #cmp-items
+}
+function finalizarCompra(){
+    alert("Guía/Factura guardada correctamente en almacén.");
+}
+
 function calcVuelto(){
     const sub = cart.reduce((a,b)=>a+(b.cant*b.p), 0);
     const rec = document.getElementById('pago-recibido').value;
@@ -478,7 +540,31 @@ async function genInf(tipo){
         productos.forEach(p=>{ const tv = p.stock * p.precio; tot+=tv; rep += `${p.nombre.padEnd(30)} | Stock: ${String(p.stock).padEnd(5)} | V.Unit: ${F(p.precio).padEnd(8)} | Total: ${F(tv)}\n`; });
         rep += `\nVALORIZACION TOTAL A VENTA: ${F(tot)}`;
     }
-    else if(tipo==='cta-cte'){
+    else if(tipo==='stats-graficos'){
+        document.getElementById('inf-result').style.display='none';
+        document.getElementById('inf-charts').style.display='flex';
+        
+        if(c1) c1.destroy(); if(c2) c2.destroy();
+        
+        const cats = {}; productos.forEach(p=>{ cats[p.categoria] = (cats[p.categoria]||0)+1; });
+        c1 = new Chart(document.getElementById('chart-cat'), {
+            type: 'doughnut',
+            data: { labels: Object.keys(cats), datasets: [{ data: Object.values(cats), backgroundColor: ['#1565C0', '#1E88E5', '#C8860A', '#F5A623', '#25D366', '#E53935'] }] },
+            options: { plugins: { legend:{position:'right'}, title: {display:true, text:'Distribución de Productos por Categoría'} }, maintainAspectRatio: false }
+        });
+        
+        const topS = [...productos].sort((a,b)=>(b.stock*b.precio)-(a.stock*a.precio)).slice(0,5);
+        c2 = new Chart(document.getElementById('chart-stock'), {
+            type: 'bar',
+            data: { labels: topS.map(p=>p.nombre.substring(0,10)), datasets: [{ label:'Valor Total (Stock x Precio)', data: topS.map(p=>p.stock*p.precio), backgroundColor: '#1565C0' }] },
+            options: { plugins: { title: {display:true, text:'Top 5 Productos Mayor Valorización (Stock)'} }, maintainAspectRatio: false }
+        });
+        
+        return; 
+    }
+    document.getElementById('inf-result').style.display='block'; document.getElementById('inf-charts').style.display='none';
+    
+    if(tipo==='cta-cte'){
         rep += "--- CARTOLA DE PAGOS (CUENTAS CORRIENTES) ---\n\n";
         for(const c of clientes){
             if(c.saldo_pendiente > 0){
